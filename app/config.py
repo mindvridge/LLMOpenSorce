@@ -28,15 +28,16 @@ class CloudflareConfig(BaseModel):
     tunnel_name: str = "llm-api"
 
 
-class OllamaConfig(BaseModel):
-    """Ollama 설정"""
-    base_url: str = "http://localhost:11434"
+class OpenAIConfig(BaseModel):
+    """OpenAI 설정"""
+    api_key: str = ""
+    enabled: bool = True
     timeout: int = 120
 
 
 class AuthConfig(BaseModel):
     """인증 설정"""
-    enabled: bool = True
+    enabled: bool = False  # 기본값: 인증 비활성화 (외부에서도 키 없이 접근 가능)
 
 
 class RateLimitConfig(BaseModel):
@@ -51,22 +52,34 @@ class CORSConfig(BaseModel):
     allowed_origins: List[str] = ["*"]
 
 
+class LoadBalancingConfig(BaseModel):
+    """로드밸런싱 설정"""
+    enabled: bool = True
+    auto_fallback: bool = True
+    prefer_local: bool = True
+    local_model: str = "vllm-qwen3-30b-a3b"
+    cloud_model: str = "gpt-5.2"
+    max_queue_size: int = 4
+    max_wait_time: float = 3.0
+
+
 class AppConfig(BaseModel):
     """전체 애플리케이션 설정"""
     server: ServerConfig
     cloudflare: CloudflareConfig
-    ollama: OllamaConfig
+    openai: OpenAIConfig
     default_model: str
     available_models: List[ModelConfig]
     auth: AuthConfig
     rate_limit: RateLimitConfig
     cors: CORSConfig
+    load_balancing: LoadBalancingConfig = LoadBalancingConfig()
 
 
 class Settings(BaseSettings):
     """환경변수 설정"""
     ADMIN_API_KEY: str = "sk-admin-change-me"
-    OLLAMA_HOST: str = "http://localhost:11434"
+    OPENAI_API_KEY: str = ""
     SERVER_HOST: str = "0.0.0.0"
     SERVER_PORT: int = 8000
     DATABASE_PATH: str = "./data/llm_server.db"

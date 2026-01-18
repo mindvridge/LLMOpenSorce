@@ -1,0 +1,2625 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>면접관 AI 채팅 - LLM API 서버</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+            background: #0f172a;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 사이드바 */
+        .sidebar {
+            width: 280px;
+            background: #1e293b;
+            border-right: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .sidebar-header h2 {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .chat-history-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #334155;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #e2e8f0;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-history-item:hover {
+            background: #475569;
+        }
+
+        .chat-history-item.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .sidebar-footer {
+            padding: 15px;
+            border-top: 1px solid #334155;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 12px;
+            background: #334155;
+            color: white;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .model-select:hover {
+            border-color: #667eea;
+            background: #3f4f63;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .model-select optgroup {
+            background: #1e293b;
+            color: #94a3b8;
+            font-weight: 600;
+            padding: 8px;
+        }
+
+        .model-select option {
+            background: #334155;
+            color: #e2e8f0;
+            padding: 10px;
+        }
+
+        /* 기업/병원 선택 섹션 */
+        .org-section {
+            margin-top: 15px;
+            padding: 12px;
+            background: #273548;
+            border-radius: 8px;
+            border: 1px solid #3d4f66;
+        }
+
+        .org-section-title {
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .custom-input {
+            width: 100%;
+            padding: 10px 12px;
+            margin-top: 8px;
+            background: #334155;
+            color: white;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .custom-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .custom-input::placeholder {
+            color: #64748b;
+        }
+
+        .selected-info {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            border-radius: 6px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+
+        .selected-info span {
+            color: #a5b4fc;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .settings-group {
+            margin-top: 10px;
+        }
+
+        .settings-group label {
+            display: block;
+            color: #94a3b8;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .settings-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #475569;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .settings-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+            transition: all 0.2s;
+        }
+
+        .settings-group input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.6);
+        }
+
+        .settings-group input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+            transition: all 0.2s;
+        }
+
+        .settings-group input[type="range"]::-moz-range-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.6);
+        }
+
+        .temp-value {
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        /* 메인 채팅 영역 */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0f172a;
+        }
+
+        .chat-header {
+            padding: 20px 30px;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h1 {
+            color: white;
+            font-size: 20px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 20px;
+            color: #10b981;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .status-badge:hover {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 메시지 영역 */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .user-message .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .assistant-message .message-avatar {
+            background: #334155;
+        }
+
+        .message-content {
+            flex: 1;
+            max-width: 800px;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .message-role {
+            color: #e2e8f0;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .message-time {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .message-text {
+            color: #cbd5e1;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #1e293b;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 14.5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+
+        .message-text:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .user-message .message-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .user-message .message-text:hover {
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .system-message {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .system-message .message-text {
+            display: inline-block;
+            background: #334155;
+            color: #94a3b8;
+            padding: 8px 16px;
+            border-radius: 16px;
+            font-size: 13px;
+        }
+
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: white;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .welcome-screen h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-screen p {
+            color: #94a3b8;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }
+
+        .example-prompts {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            max-width: 600px;
+        }
+
+        .example-prompt {
+            padding: 20px;
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+        }
+
+        .example-prompt:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .example-prompt .icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .example-prompt .title {
+            color: #e2e8f0;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .example-prompt .desc {
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        /* 입력 영역 */
+        .input-area {
+            padding: 20px 30px;
+            background: #1e293b;
+            border-top: 1px solid #334155;
+        }
+
+        .system-prompt-toggle {
+            margin-bottom: 12px;
+        }
+
+        .system-prompt-btn {
+            background: transparent;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .system-prompt-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .prompt-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .prompt-title {
+            flex: 1;
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .prompt-action-btn {
+            padding: 8px 12px;
+            background: #334155;
+            color: #94a3b8;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .prompt-action-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .prompt-action-btn.save {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .prompt-action-btn.save:hover {
+            background: rgba(16, 185, 129, 0.2);
+        }
+
+        .system-prompt-input {
+            display: none;
+            margin-bottom: 12px;
+        }
+
+        .system-prompt-input.active {
+            display: block;
+        }
+
+        .system-prompt-input textarea {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-family: inherit;
+            font-size: 13px;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .system-prompt-input textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 14px 18px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            color: white;
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            max-height: 150px;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-hint {
+            margin-top: 8px;
+            color: #64748b;
+            font-size: 12px;
+            text-align: center;
+            padding: 4px 0;
+        }
+
+        .input-hint strong {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .send-btn {
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* PDF 첨부 버튼 */
+        .attach-btn {
+            padding: 14px 16px;
+            background: #334155;
+            color: #e2e8f0;
+            border: 2px solid #475569;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .attach-btn:hover {
+            border-color: #667eea;
+            background: #3f4f63;
+        }
+
+        .attach-btn.has-file {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+
+        #resumeInput {
+            display: none;
+        }
+
+        .resume-info {
+            display: none;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            color: #10b981;
+            font-size: 13px;
+        }
+
+        .resume-info.active {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .resume-info .filename {
+            font-weight: 600;
+        }
+
+        .resume-info .remove-btn {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .resume-info .remove-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: #1e293b;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .typing-indicator.active {
+            display: flex;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        .clear-btn {
+            padding: 8px 16px;
+            background: transparent;
+            color: #ef4444;
+            border: 1px solid #ef4444;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .clear-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* RAG 섹션 */
+        .rag-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #334155;
+        }
+
+        .rag-section-title {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .rag-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .rag-toggle label {
+            color: #e2e8f0;
+            font-size: 13px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #475569;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .rag-upload-btn {
+            width: 100%;
+            padding: 10px 14px;
+            background: #334155;
+            color: #e2e8f0;
+            border: 1px dashed #475569;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .rag-upload-btn:hover {
+            border-color: #667eea;
+            background: #3f4f63;
+        }
+
+        .rag-docs-list {
+            max-height: 120px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+
+        .rag-doc-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: #334155;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: #e2e8f0;
+        }
+
+        .rag-doc-item .doc-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .rag-doc-item .doc-delete {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 14px;
+        }
+
+        .rag-doc-item .doc-delete:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 4px;
+        }
+
+        .rag-status {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+
+        .rag-status.active {
+            color: #10b981;
+        }
+
+        /* 스크롤바 스타일 */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                z-index: 100;
+                transition: left 0.3s;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .example-prompts {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 프롬프트 편집 모달 */
+        .prompt-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .prompt-modal-overlay.active {
+            display: flex;
+        }
+
+        .prompt-modal {
+            width: 90%;
+            max-width: 900px;
+            height: 85%;
+            background: #1e293b;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .prompt-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .prompt-modal-header h3 {
+            color: #e2e8f0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prompt-modal-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .prompt-modal-close:hover {
+            background: #334155;
+            color: #e2e8f0;
+        }
+
+        .prompt-modal-body {
+            flex: 1;
+            padding: 24px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .prompt-modal-textarea {
+            flex: 1;
+            width: 100%;
+            padding: 16px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            color: #e2e8f0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            transition: border-color 0.3s;
+        }
+
+        .prompt-modal-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .prompt-modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-top: 1px solid #334155;
+            background: #1a2332;
+            border-radius: 0 0 16px 16px;
+        }
+
+        .prompt-modal-info {
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .prompt-modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .prompt-modal-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .prompt-modal-btn.cancel {
+            background: transparent;
+            border: 1px solid #475569;
+            color: #94a3b8;
+        }
+
+        .prompt-modal-btn.cancel:hover {
+            background: #334155;
+            color: #e2e8f0;
+        }
+
+        .prompt-modal-btn.save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+
+        .prompt-modal-btn.save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .prompt-modal-btn.reload {
+            background: #334155;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+        }
+
+        .prompt-modal-btn.reload:hover {
+            background: #3f4f63;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 사이드바 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🤖 면접관 AI</h2>
+                <button class="new-chat-btn" onclick="startNewChat()">
+                    ➕ 새 대화 시작
+                </button>
+            </div>
+
+            <div class="sidebar-content" id="chatHistory">
+                <!-- 대화 기록이 여기에 표시됩니다 -->
+            </div>
+
+            <div class="sidebar-footer">
+                <select class="model-select" id="modelSelect">
+                    <optgroup label="🚀 vLLM-MLX (Apple Silicon 최적화)">
+                        <option value="vllm-qwen3-30b-a3b" selected>Qwen3 30B MoE (217 t/s) 🏆</option>
+                    </optgroup>
+                    <optgroup label="☁️ 클라우드 API">
+                        <option value="gpt-5.2">GPT-5.2 (OpenAI)</option>
+                    </optgroup>
+                </select>
+
+                <!-- 기업/병원 선택 섹션 -->
+                <div class="org-section">
+                    <div class="org-section-title">🏢 면접 대상 선택</div>
+
+                    <div class="settings-group">
+                        <label>유형</label>
+                        <select class="model-select" id="orgTypeSelect" onchange="onOrgTypeChange()">
+                            <option value="">-- 선택하세요 --</option>
+                            <option value="company">일반 기업</option>
+                            <option value="hospital">병원</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group" id="orgSelectGroup" style="display: none;">
+                        <label>기업/병원명</label>
+                        <select class="model-select" id="orgSelect" onchange="onOrgChange()">
+                            <option value="">-- 선택하세요 --</option>
+                        </select>
+                        <input type="text" class="custom-input" id="customOrgInput" placeholder="기업/병원명 직접 입력" style="display: none;">
+                    </div>
+
+                    <div class="settings-group" id="jobSelectGroup" style="display: none;">
+                        <label>직무</label>
+                        <select class="model-select" id="jobSelect" onchange="onJobChange()">
+                            <option value="">-- 선택하세요 --</option>
+                        </select>
+                        <input type="text" class="custom-input" id="customJobInput" placeholder="직무 직접 입력" style="display: none;">
+                    </div>
+
+                    <div class="selected-info" id="selectedInfo" style="display: none;">
+                        <span id="selectedOrgJob"></span>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <label>
+                        Temperature: <span class="temp-value" id="tempValue">0.7</span>
+                    </label>
+                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                </div>
+
+                <!-- RAG 섹션 -->
+                <div class="rag-section">
+                    <div class="rag-section-title">
+                        📚 문서 참조 (RAG)
+                    </div>
+
+                    <div class="rag-toggle">
+                        <label>RAG 활성화</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="ragEnabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <input type="file" id="ragFileInput" accept=".pdf" style="display: none;" onchange="uploadRAGDocument(event)">
+                    <button class="rag-upload-btn" onclick="document.getElementById('ragFileInput').click()">
+                        📄 PDF 문서 업로드
+                    </button>
+
+                    <div class="rag-docs-list" id="ragDocsList">
+                        <!-- 업로드된 문서 목록 -->
+                    </div>
+
+                    <div class="rag-status" id="ragStatus">
+                        문서 0개 등록됨
+                    </div>
+                </div>
+
+                <!-- 질문셋 RAG 섹션 -->
+                <div class="rag-section" style="margin-top: 15px;">
+                    <div class="rag-section-title">
+                        💡 질문셋 참조 (RAG)
+                    </div>
+
+                    <div class="rag-toggle">
+                        <label>질문셋 RAG 활성화</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="questionSetRagEnabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="rag-status" id="questionSetRagStatus" style="font-size: 11px;">
+                        직무 선택 시 관련 질문 자동 검색
+                    </div>
+                </div>
+
+                <!-- 이력서 RAG 섹션 -->
+                <div class="rag-section" style="margin-top: 15px;">
+                    <div class="rag-section-title">
+                        📄 이력서 참조 (RAG)
+                    </div>
+
+                    <div class="rag-toggle">
+                        <label>이력서 RAG 활성화</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="resumeRagEnabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="rag-status" id="resumeRagStatus" style="font-size: 11px;">
+                        이력서 첨부 시 관련 내용 자동 검색
+                    </div>
+                </div>
+
+                <!-- TTS 섹션 -->
+                <div class="rag-section" style="margin-top: 15px;">
+                    <div class="rag-section-title">
+                        🎤 음성 출력 (TTS)
+                    </div>
+
+                    <div class="rag-toggle">
+                        <label>TTS 자동 재생</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="ttsEnabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="rag-status" id="ttsStatus" style="font-size: 11px;">
+                        AI 응답을 음성으로 읽어줍니다
+                    </div>
+                </div>
+
+                <button class="clear-btn" onclick="clearAllChats()">
+                    🗑️ 모든 대화 삭제
+                </button>
+            </div>
+        </div>
+
+        <!-- 메인 채팅 영역 -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <h1>면접관 AI 채팅</h1>
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    <span id="statusText">서버 연결 중...</span>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messagesContainer">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <h2>👋 면접관 AI에 오신 것을 환영합니다</h2>
+                    <p>전문 면접관이 당신의 역량을 평가하고 질문을 제공합니다</p>
+
+                    <div class="example-prompts">
+                        <div class="example-prompt" onclick="setExamplePrompt('frontend')">
+                            <div class="icon">💼</div>
+                            <div class="title">프론트엔드 면접</div>
+                            <div class="desc">React 개발자 3년 경력</div>
+                        </div>
+                        <div class="example-prompt" onclick="setExamplePrompt('backend')">
+                            <div class="icon">🖥️</div>
+                            <div class="title">백엔드 면접</div>
+                            <div class="desc">Node.js/Python 5년 경력</div>
+                        </div>
+                        <div class="example-prompt" onclick="setExamplePrompt('data')">
+                            <div class="icon">📊</div>
+                            <div class="title">데이터 분석가</div>
+                            <div class="desc">Python/SQL 2년 경력</div>
+                        </div>
+                        <div class="example-prompt" onclick="setExamplePrompt('design')">
+                            <div class="icon">🎨</div>
+                            <div class="title">UI/UX 디자이너</div>
+                            <div class="desc">Figma 4년 경력</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="system-prompt-toggle">
+                    <button class="system-prompt-btn" id="systemPromptBtn" onclick="openPromptModal()">
+                        📝 프롬프트 편집
+                    </button>
+                </div>
+
+                <!-- 숨겨진 시스템 프롬프트 (내부 사용) -->
+                <textarea id="systemPrompt" style="display: none;">당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요. /nothink</textarea>
+
+                <div class="resume-info" id="resumeInfo">
+                    <span>📄 <span class="filename" id="resumeFilename"></span> 첨부됨</span>
+                    <button class="remove-btn" onclick="removeResume()">✕ 제거</button>
+                </div>
+
+                <div class="input-wrapper">
+                    <input type="file" id="resumeInput" accept=".pdf" onchange="handleResumeUpload(event)">
+                    <button class="attach-btn" id="attachBtn" onclick="document.getElementById('resumeInput').click()" title="이력서 PDF 첨부">
+                        📎
+                    </button>
+                    <textarea
+                        id="messageInput"
+                        placeholder="메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)"
+                        rows="1"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn">
+                        <span>전송</span>
+                        <span>📤</span>
+                    </button>
+                </div>
+                <div class="input-hint">
+                    💡 <strong>Enter</strong>로 전송 | <strong>Shift + Enter</strong>로 줄바꿈 | <strong>📎</strong> 이력서 PDF 첨부
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Base URL 자동 감지
+        const API_BASE_URL = window.location.origin;
+        const API_ENDPOINT = `${API_BASE_URL}/v1/chat/completions`;
+        const HEALTH_ENDPOINT = `${API_BASE_URL}/health`;
+        const RAG_ENDPOINT = `${API_BASE_URL}/rag`;
+        const RESUME_ENDPOINT = `${API_BASE_URL}/resume`;
+        const PROMPTS_ENDPOINT = `${API_BASE_URL}/prompts`;
+        const TTS_ENDPOINT = `${API_BASE_URL}/tts`;
+
+        // 전역 상태
+        let conversations = JSON.parse(localStorage.getItem('conversations')) || [];
+        let currentConversationId = null;
+        let messageHistory = [];
+        let isSending = false; // 중복 전송 방지 플래그
+        let resumeSessionId = null; // 이력서 세션 ID
+        let resumeSummary = null; // 이력서 요약
+
+        // 기업/병원 선택 데이터
+        let orgData = null;
+        let selectedOrgType = '';
+        let selectedOrg = '';
+        let selectedJob = '';
+        let currentQuestionSet = null;  // 현재 로드된 질문셋
+        let ttsAudio = null;  // 현재 재생 중인 TTS 오디오
+        let ttsQueue = [];    // TTS 재생 대기열
+        let isTTSPlaying = false;  // TTS 재생 중 여부
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            checkServerStatus();
+            loadChatHistory();
+            setupEventListeners();
+            loadExpertPrompt();  // 전문 면접관 프롬프트 로드
+            loadRAGDocuments();  // RAG 문서 목록 로드
+
+            // 저장된 대화가 있으면 마지막 대화 로드
+            if (conversations.length > 0) {
+                loadConversation(conversations[0].id);
+            }
+        });
+
+        // 이벤트 리스너 설정
+        function setupEventListeners() {
+            // Temperature 슬라이더
+            document.getElementById('temperature').addEventListener('input', (e) => {
+                document.getElementById('tempValue').textContent = e.target.value;
+            });
+
+            // 전송 버튼 클릭
+            document.getElementById('sendBtn').addEventListener('click', () => {
+                sendMessage();
+            });
+
+            // Enter 키로 전송 (Shift+Enter는 줄바꿈)
+            // 한글 IME 조합 중에는 전송하지 않음 (isComposing 체크)
+            document.getElementById('messageInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // 자동 높이 조절
+            document.getElementById('messageInput').addEventListener('input', (e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+            });
+
+            // 직접 입력 필드 변경 시 선택 정보 업데이트
+            document.getElementById('customOrgInput').addEventListener('input', updateSelectedInfo);
+            document.getElementById('customJobInput').addEventListener('input', updateSelectedInfo);
+        }
+
+        // 서버 상태 확인
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(HEALTH_ENDPOINT);
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    document.getElementById('statusText').textContent = '서버 정상';
+                } else {
+                    document.getElementById('statusText').textContent = '일부 제한';
+                }
+            } catch (error) {
+                document.getElementById('statusText').textContent = '연결 실패';
+            }
+        }
+
+        // 예시 프롬프트 설정
+        function setExamplePrompt(type) {
+            const examples = {
+                frontend: {
+                    system: '당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요.',
+                    user: '프론트엔드 개발자로 지원했습니다. React 3년 경력이 있고 TypeScript를 사용합니다.'
+                },
+                backend: {
+                    system: '당신은 전문 면접관입니다. 백엔드 개발자의 기술 역량과 문제 해결 능력을 평가하세요.',
+                    user: 'Node.js와 Python을 사용하는 백엔드 개발자입니다. 5년 경력이며 MSA 아키텍처 경험이 있습니다.'
+                },
+                data: {
+                    system: '당신은 전문 면접관입니다. 데이터 분석가의 분석 능력과 비즈니스 인사이트를 평가하세요.',
+                    user: '데이터 분석가로 지원합니다. Python, SQL, Tableau를 사용하며 2년 경력입니다.'
+                },
+                design: {
+                    system: '당신은 전문 면접관입니다. UI/UX 디자이너의 디자인 사고와 사용자 중심 접근 방식을 평가하세요.',
+                    user: 'UI/UX 디자이너입니다. Figma, Adobe XD를 사용하며 4년 경력입니다.'
+                }
+            };
+
+            const example = examples[type];
+            document.getElementById('systemPrompt').value = example.system;
+            document.getElementById('messageInput').value = example.user;
+
+            // 새 대화 시작
+            startNewChat();
+        }
+
+        // 새 대화 시작
+        function startNewChat() {
+            currentConversationId = Date.now().toString();
+            messageHistory = [];
+
+            // 웰컴 스크린 숨기기
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            if (welcomeScreen) {
+                welcomeScreen.style.display = 'none';
+            }
+
+            // 메시지 컨테이너 비우기
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+
+            // 시스템 메시지 추가
+            addSystemMessage('새로운 면접 세션이 시작되었습니다.');
+
+            // 대화 기록에 추가
+            const conversation = {
+                id: currentConversationId,
+                title: '새 대화',
+                messages: [],
+                timestamp: Date.now()
+            };
+            conversations.unshift(conversation);
+            saveConversations();
+            loadChatHistory();
+        }
+
+        // 메시지 전송 (스트리밍)
+        async function sendMessage() {
+            // 중복 전송 방지
+            if (isSending) return;
+
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+
+            if (!message) return;
+
+            // 전송 시작
+            isSending = true;
+
+            // 대화가 없으면 새로 시작
+            if (!currentConversationId) {
+                startNewChat();
+            }
+
+            // 사용자 메시지 표시
+            addMessage('user', message);
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            // 메시지 기록에 추가
+            messageHistory.push({
+                role: 'user',
+                content: message
+            });
+
+            // 타이핑 인디케이터 표시
+            showTypingIndicator();
+
+            // 전송 버튼 비활성화
+            document.getElementById('sendBtn').disabled = true;
+
+            // API 요청 준비
+            let systemPrompt = document.getElementById('systemPrompt').value.trim();
+            const messages = [];
+
+            // 선택된 기업/직무 정보 추가
+            const orgJobInfo = getSelectedOrgJobInfo();
+            if (orgJobInfo) {
+                const orgJobContext = `\n\n[면접 대상 정보]\n- 유형: ${orgJobInfo.type}\n- 기업/병원명: ${orgJobInfo.organization || '미지정'}\n- 지원 직무: ${orgJobInfo.job || '미지정'}`;
+                systemPrompt += orgJobContext;
+            }
+
+            // 질문셋 주입 (프롬프트의 {JOB_ROLE_SET} 플레이스홀더 대체)
+            // 질문셋 RAG가 활성화된 경우 전체 주입 건너뜀 (RAG로 관련 질문만 검색)
+            const useQuestionSetRag = document.getElementById('questionSetRagEnabled').checked;
+            if (useQuestionSetRag) {
+                // RAG 사용 시 플레이스홀더 제거 (서버에서 관련 질문만 추가됨)
+                systemPrompt = systemPrompt.replace('{JOB_ROLE_SET}', '(RAG로 관련 질문 자동 검색)');
+            } else if (currentQuestionSet) {
+                systemPrompt = systemPrompt.replace('{JOB_ROLE_SET}', currentQuestionSet);
+            } else {
+                // 질문셋이 없으면 플레이스홀더 제거
+                systemPrompt = systemPrompt.replace('{JOB_ROLE_SET}', '(질문셋 없음)');
+            }
+
+            if (systemPrompt) {
+                messages.push({
+                    role: 'system',
+                    content: systemPrompt
+                });
+            }
+
+            // 이전 대화 기록 포함 (클라이언트에서 관리)
+            messages.push(...messageHistory);
+
+            try {
+                // RAG 파라미터 확인
+                const ragEnabled = document.getElementById('ragEnabled').checked;
+                const questionSetRagEnabled = document.getElementById('questionSetRagEnabled').checked;
+
+                // 질문셋 RAG용 org_type, job_name 추출
+                let questionSetOrgType = null;
+                let questionSetJobName = null;
+                if (questionSetRagEnabled && orgJobInfo) {
+                    questionSetOrgType = orgJobInfo.type === '병원' ? '병원' : '일반기업';
+                    // 직무명에서 슬래시 제거 (API 파라미터 호환)
+                    questionSetJobName = orgJobInfo.job ? orgJobInfo.job.replace(/\//g, '') : null;
+                }
+
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer sk-yMF-iN0klm6zt0E1D9nrYFejxozobeq-sNdNSqcU_hA'
+                    },
+                    body: JSON.stringify({
+                        model: document.getElementById('modelSelect').value,
+                        messages: messages,
+                        temperature: parseFloat(document.getElementById('temperature').value),
+                        stream: true,  // 스트리밍 활성화
+                        rag_enabled: ragEnabled,  // RAG 활성화 여부
+                        rag_collection: 'default',
+                        rag_top_k: 5,
+                        // 질문셋 RAG 파라미터
+                        question_set_rag_enabled: questionSetRagEnabled,
+                        question_set_org_type: questionSetOrgType,
+                        question_set_job_name: questionSetJobName,
+                        question_set_top_k: 5,
+                        // 이력서 RAG 파라미터
+                        resume_rag_enabled: document.getElementById('resumeRagEnabled').checked && resumeSessionId,
+                        resume_session_id: resumeSessionId,
+                        resume_top_k: 3
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API 요청 실패');
+                }
+
+                // 타이핑 인디케이터 숨기기
+                hideTypingIndicator();
+
+                // 스트리밍 응답 처리
+                let assistantMessage = '';
+                const container = document.getElementById('messagesContainer');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message assistant-message';
+
+                const avatarEmoji = '🤖';
+                const roleName = '면접관';
+                const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+                messageDiv.innerHTML = `
+                    <div class="message-avatar">${avatarEmoji}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-role">${roleName}</span>
+                            <span class="message-time">${time}</span>
+                        </div>
+                        <div class="message-text" id="streaming-message"></div>
+                    </div>
+                `;
+                container.appendChild(messageDiv);
+
+                const streamingMessageDiv = document.getElementById('streaming-message');
+                const reader = response.body.getReader();
+
+                // TextDecoder의 stream 옵션으로 UTF-8 안전하게 처리
+                const decoder = new TextDecoder('utf-8', { fatal: false });
+                let lineBuffer = '';
+
+                // UTF-8 불완전 시퀀스 감지 함수
+                function findCompleteUtf8End(buffer) {
+                    if (buffer.length === 0) return 0;
+
+                    // 뒤에서부터 불완전한 멀티바이트 시퀀스 찾기
+                    for (let i = Math.min(3, buffer.length - 1); i >= 0; i--) {
+                        const idx = buffer.length - 1 - i;
+                        const byte = buffer[idx];
+
+                        // 멀티바이트 시작 바이트인지 확인
+                        if ((byte & 0xC0) === 0xC0) {  // 11xxxxxx - 멀티바이트 시작
+                            let expectedLen;
+                            if ((byte & 0xF8) === 0xF0) expectedLen = 4;       // 11110xxx
+                            else if ((byte & 0xF0) === 0xE0) expectedLen = 3;  // 1110xxxx (한글)
+                            else if ((byte & 0xE0) === 0xC0) expectedLen = 2;  // 110xxxxx
+                            else continue;
+
+                            const actualLen = buffer.length - idx;
+                            if (actualLen < expectedLen) {
+                                return idx;  // 불완전 - 이 위치까지만 유효
+                            }
+                        }
+                    }
+                    return buffer.length;  // 전체가 유효
+                }
+
+                let pendingBytes = new Uint8Array(0);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        // 스트림 종료 - 남은 데이터 처리
+                        if (pendingBytes.length > 0) {
+                            const finalText = decoder.decode(pendingBytes);
+                            lineBuffer += finalText;
+                        }
+                        break;
+                    }
+
+                    // 이전 pending 바이트와 새 데이터 병합
+                    const combined = new Uint8Array(pendingBytes.length + value.length);
+                    combined.set(pendingBytes);
+                    combined.set(value, pendingBytes.length);
+
+                    // 완전한 UTF-8 끝 위치 찾기
+                    const validEnd = findCompleteUtf8End(combined);
+
+                    // 완전한 부분만 디코딩
+                    const completeBytes = combined.slice(0, validEnd);
+                    pendingBytes = combined.slice(validEnd);
+
+                    if (completeBytes.length > 0) {
+                        const text = decoder.decode(completeBytes, { stream: true });
+                        lineBuffer += text;
+                    }
+
+                    // 완전한 라인만 처리 (줄바꿈으로 분리)
+                    const lines = lineBuffer.split('\n');
+                    lineBuffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            if (data === '[DONE]') continue;
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                let content = parsed.choices[0]?.delta?.content;
+                                if (content) {
+                                    // 특수 토큰 제거 (원본 누적용)
+                                    content = content
+                                        .replace(/<\|im_end\|>/g, '')
+                                        .replace(/<\|im_start\|>/g, '');
+                                    assistantMessage += content;
+                                    // 화면 표시용: 완료 시와 동일한 필터 적용
+                                    let displayMessage = assistantMessage
+                                        .replace(/<think>[\s\S]*?<\/think>/g, '')  // thinking mode 태그
+                                        .replace(/<\|im_end\|>/g, '')              // 종료 토큰
+                                        .replace(/<\|im_start\|>/g, '')            // 시작 토큰
+                                        .replace(/\?\?/g, '')                       // 깨진 이모지
+                                        .replace(/�/g, '')                          // replacement character
+                                        .replace(/[\uFFFD]/g, '')                   // Unicode replacement char
+                                        .replace(/[\u0000-\u001F]/g, '');           // control characters
+                                    streamingMessageDiv.textContent = displayMessage;
+                                    container.scrollTop = container.scrollHeight;
+                                }
+                            } catch (e) {
+                                // JSON 파싱 에러 무시
+                            }
+                        }
+                    }
+                }
+
+                // 남은 lineBuffer 처리
+                if (lineBuffer.length > 0) {
+                    const lines = lineBuffer.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            if (data === '[DONE]') continue;
+                            try {
+                                const parsed = JSON.parse(data);
+                                let content = parsed.choices[0]?.delta?.content;
+                                if (content) {
+                                    content = content
+                                        .replace(/<\|im_end\|>/g, '')
+                                        .replace(/<\|im_start\|>/g, '');
+                                    assistantMessage += content;
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                    // 남은 버퍼 처리 후 화면 업데이트
+                    let displayMessage = assistantMessage
+                        .replace(/<think>[\s\S]*?<\/think>/g, '')
+                        .replace(/<\|im_end\|>/g, '')
+                        .replace(/<\|im_start\|>/g, '')
+                        .replace(/\?\?/g, '')
+                        .replace(/�/g, '')
+                        .replace(/[\uFFFD]/g, '')
+                        .replace(/[\u0000-\u001F]/g, '');
+                    streamingMessageDiv.textContent = displayMessage;
+                }
+
+                // 스트리밍 ID 제거
+                streamingMessageDiv.removeAttribute('id');
+
+                // 최종 정리: trim 적용
+                const cleanedMessage = assistantMessage
+                    .replace(/<think>[\s\S]*?<\/think>/g, '')  // thinking mode 태그
+                    .replace(/<\|im_end\|>/g, '')              // 종료 토큰
+                    .replace(/<\|im_start\|>/g, '')            // 시작 토큰
+                    .replace(/\?\?/g, '')                       // 깨진 이모지
+                    .replace(/�/g, '')                          // replacement character
+                    .replace(/[\uFFFD]/g, '')                   // Unicode replacement char
+                    .replace(/[\u0000-\u001F]/g, '')            // control characters
+                    .trim();
+
+                // trim으로 인한 차이만 업데이트 (내용 변경 최소화)
+                if (streamingMessageDiv.textContent !== cleanedMessage) {
+                    streamingMessageDiv.textContent = cleanedMessage;
+                }
+                assistantMessage = cleanedMessage;
+
+                // 메시지 기록에 추가
+                messageHistory.push({
+                    role: 'assistant',
+                    content: assistantMessage
+                });
+
+                // 대화 저장
+                saveCurrentConversation();
+
+                // TTS 자동 재생 (활성화된 경우)
+                const ttsEnabled = document.getElementById('ttsEnabled').checked;
+                console.log('[TTS] TTS 활성화 여부:', ttsEnabled, ', 메시지 길이:', assistantMessage?.length);
+                if (ttsEnabled && assistantMessage) {
+                    console.log('[TTS] TTS 재생 시작...');
+                    playTTS(assistantMessage);
+                }
+
+            } catch (error) {
+                hideTypingIndicator();
+                addSystemMessage('❌ 오류: ' + error.message);
+            } finally {
+                document.getElementById('sendBtn').disabled = false;
+                isSending = false; // 전송 완료, 플래그 해제
+            }
+        }
+
+        // 메시지 추가
+        function addMessage(role, content) {
+            const container = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}-message`;
+
+            const avatarEmoji = role === 'user' ? '👤' : '🤖';
+            const roleName = role === 'user' ? '지원자' : '면접관';
+            const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatarEmoji}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-role">${roleName}</span>
+                        <span class="message-time">${time}</span>
+                    </div>
+                    <div class="message-text">${content}</div>
+                </div>
+            `;
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 시스템 메시지 추가
+        function addSystemMessage(content) {
+            const container = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system-message';
+            messageDiv.innerHTML = `<div class="message-text">${content}</div>`;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 타이핑 인디케이터
+        function showTypingIndicator() {
+            const container = document.getElementById('messagesContainer');
+            const indicator = document.createElement('div');
+            indicator.id = 'typingIndicator';
+            indicator.className = 'typing-indicator active';
+            indicator.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            container.appendChild(indicator);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // 대화 저장
+        function saveCurrentConversation() {
+            if (!currentConversationId) return;
+
+            const conversation = conversations.find(c => c.id === currentConversationId);
+            if (conversation) {
+                conversation.messages = messageHistory;
+                conversation.timestamp = Date.now();
+
+                // 첫 메시지로 제목 설정
+                if (messageHistory.length > 0) {
+                    const firstUserMessage = messageHistory.find(m => m.role === 'user');
+                    if (firstUserMessage) {
+                        conversation.title = firstUserMessage.content.substring(0, 30) + '...';
+                    }
+                }
+
+                saveConversations();
+                loadChatHistory();
+            }
+        }
+
+        // 대화 목록 저장
+        function saveConversations() {
+            localStorage.setItem('conversations', JSON.stringify(conversations));
+        }
+
+        // 대화 기록 로드
+        function loadChatHistory() {
+            const historyContainer = document.getElementById('chatHistory');
+            historyContainer.innerHTML = '';
+
+            if (conversations.length === 0) {
+                historyContainer.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px; font-size: 13px;">저장된 대화가 없습니다</div>';
+                return;
+            }
+
+            conversations.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = 'chat-history-item';
+                if (conv.id === currentConversationId) {
+                    item.classList.add('active');
+                }
+                item.textContent = conv.title;
+                item.onclick = () => loadConversation(conv.id);
+                historyContainer.appendChild(item);
+            });
+        }
+
+        // 특정 대화 로드
+        function loadConversation(id) {
+            const conversation = conversations.find(c => c.id === id);
+            if (!conversation) return;
+
+            currentConversationId = id;
+            messageHistory = [...conversation.messages];
+
+            // 웰컴 스크린 숨기기
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            if (welcomeScreen) {
+                welcomeScreen.style.display = 'none';
+            }
+
+            // 메시지 컨테이너 초기화
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+
+            // 메시지 표시
+            messageHistory.forEach(msg => {
+                addMessage(msg.role, msg.content);
+            });
+
+            loadChatHistory();
+        }
+
+        // 모든 대화 삭제
+        function clearAllChats() {
+            if (confirm('모든 대화를 삭제하시겠습니까?')) {
+                conversations = [];
+                currentConversationId = null;
+                messageHistory = [];
+                saveConversations();
+                loadChatHistory();
+
+                // 웰컴 스크린 표시
+                const container = document.getElementById('messagesContainer');
+                container.innerHTML = '';
+                const welcomeScreen = document.getElementById('welcomeScreen');
+                if (welcomeScreen) {
+                    welcomeScreen.style.display = 'flex';
+                }
+            }
+        }
+
+        // 이력서 PDF 업로드 처리
+        async function handleResumeUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                alert('PDF 파일만 업로드 가능합니다.');
+                return;
+            }
+
+            // 업로드 중 표시
+            const attachBtn = document.getElementById('attachBtn');
+            attachBtn.textContent = '⏳';
+            attachBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch(`${RESUME_ENDPOINT}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'PDF 업로드 실패');
+                }
+
+                const data = await response.json();
+                resumeSessionId = data.session_id;
+                resumeSummary = data.summary;
+
+                // UI 업데이트
+                document.getElementById('resumeFilename').textContent = file.name;
+                document.getElementById('resumeInfo').classList.add('active');
+                attachBtn.classList.add('has-file');
+                attachBtn.textContent = '📄';
+
+                // 시스템 프롬프트에 이력서 정보 추가
+                updateSystemPromptWithResume();
+
+                addSystemMessage(`📄 이력서 "${file.name}" 업로드 완료! 면접 질문에 활용됩니다.`);
+
+            } catch (error) {
+                alert('이력서 업로드 실패: ' + error.message);
+                attachBtn.textContent = '📎';
+            } finally {
+                attachBtn.disabled = false;
+                event.target.value = ''; // 같은 파일 재선택 가능하도록
+            }
+        }
+
+        // 이력서 제거
+        async function removeResume() {
+            if (resumeSessionId) {
+                try {
+                    await fetch(`${RESUME_ENDPOINT}/${resumeSessionId}`, {
+                        method: 'DELETE'
+                    });
+                } catch (e) {
+                    console.error('이력서 삭제 실패:', e);
+                }
+            }
+
+            resumeSessionId = null;
+            resumeSummary = null;
+            document.getElementById('resumeInfo').classList.remove('active');
+            document.getElementById('attachBtn').classList.remove('has-file');
+            document.getElementById('attachBtn').textContent = '📎';
+
+            // 시스템 프롬프트 복원
+            resetSystemPrompt();
+            addSystemMessage('📄 이력서가 제거되었습니다.');
+        }
+
+        // 시스템 프롬프트에 이력서 정보 추가
+        function updateSystemPromptWithResume() {
+            if (!resumeSummary) return;
+
+            // 이력서 RAG가 활성화되어 있으면 전체 주입 건너뛰기
+            const resumeRagEnabled = document.getElementById('resumeRagEnabled').checked;
+            if (resumeRagEnabled) {
+                const basePrompt = '당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요.';
+                const resumeContext = `
+
+[이력서 첨부됨 - RAG로 관련 내용 자동 검색]
+이력서가 첨부되어 있습니다. 질문과 관련된 이력서 내용이 자동으로 참조됩니다. /nothink`;
+                document.getElementById('systemPrompt').value = basePrompt + resumeContext;
+                return;
+            }
+
+            const basePrompt = '당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요.';
+            const resumeContext = `
+
+[지원자 이력서 정보]
+${resumeSummary}
+
+위 이력서 내용을 바탕으로 지원자의 경력, 기술, 프로젝트 경험에 대해 구체적인 질문을 해주세요. /nothink`;
+
+            document.getElementById('systemPrompt').value = basePrompt + resumeContext;
+        }
+
+        // 시스템 프롬프트 복원
+        function resetSystemPrompt() {
+            document.getElementById('systemPrompt').value = '당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요. /nothink';
+        }
+
+        // 10초마다 서버 상태 확인
+        setInterval(checkServerStatus, 10000);
+
+        // ==================== TTS 기능 ====================
+
+        // TTS 상태 확인
+        async function checkTTSStatus() {
+            try {
+                const response = await fetch(`${TTS_ENDPOINT}/status`);
+                const data = await response.json();
+
+                const statusEl = document.getElementById('ttsStatus');
+                if (data.available && data.model_loaded) {
+                    statusEl.textContent = `모델 로드됨 (${data.device})`;
+                    statusEl.className = 'rag-status active';
+                } else if (data.available) {
+                    statusEl.textContent = '모델 로딩 중...';
+                    statusEl.className = 'rag-status';
+                } else {
+                    statusEl.textContent = 'TTS 사용 불가';
+                    statusEl.className = 'rag-status';
+                }
+                return data;
+            } catch (error) {
+                console.error('TTS 상태 확인 실패:', error);
+                document.getElementById('ttsStatus').textContent = 'TTS 연결 실패';
+                return null;
+            }
+        }
+
+        // TTS 음성 재생
+        async function playTTS(text) {
+            console.log('[TTS] playTTS 호출됨, 텍스트 길이:', text?.length);
+            if (!text || text.trim().length === 0) {
+                console.log('[TTS] 텍스트가 비어있어 건너뜀');
+                return;
+            }
+
+            // 상태 업데이트
+            const statusEl = document.getElementById('ttsStatus');
+            statusEl.textContent = '음성 생성 중...';
+            console.log('[TTS] 음성 생성 요청 시작...');
+
+            try {
+                const response = await fetch(`${TTS_ENDPOINT}/synthesize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        speed: 1.0
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'TTS 합성 실패');
+                }
+
+                // 오디오 Blob 생성
+                const audioBlob = await response.blob();
+                console.log('[TTS] 오디오 Blob 생성됨, 크기:', audioBlob.size, 'bytes');
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                // 기존 오디오 정지
+                if (ttsAudio) {
+                    ttsAudio.pause();
+                    URL.revokeObjectURL(ttsAudio.src);
+                }
+
+                // 새 오디오 재생
+                ttsAudio = new Audio(audioUrl);
+                isTTSPlaying = true;
+                statusEl.textContent = '재생 중...';
+                statusEl.className = 'rag-status active';
+
+                ttsAudio.onended = () => {
+                    isTTSPlaying = false;
+                    URL.revokeObjectURL(audioUrl);
+                    statusEl.textContent = 'AI 응답을 음성으로 읽어줍니다';
+                    statusEl.className = 'rag-status';
+                };
+
+                ttsAudio.onerror = () => {
+                    isTTSPlaying = false;
+                    statusEl.textContent = '재생 오류';
+                    console.error('TTS 오디오 재생 오류');
+                };
+
+                console.log('[TTS] 오디오 재생 시작...');
+                await ttsAudio.play();
+                console.log('[TTS] 재생 성공!');
+
+            } catch (error) {
+                console.error('[TTS] 재생 실패:', error);
+                statusEl.textContent = `오류: ${error.message}`;
+                isTTSPlaying = false;
+            }
+        }
+
+        // TTS 정지
+        function stopTTS() {
+            if (ttsAudio) {
+                ttsAudio.pause();
+                ttsAudio.currentTime = 0;
+                isTTSPlaying = false;
+                document.getElementById('ttsStatus').textContent = 'AI 응답을 음성으로 읽어줍니다';
+            }
+        }
+
+        // TTS 토글 변경 시 모델 웜업
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('ttsEnabled').addEventListener('change', async (e) => {
+                if (e.target.checked) {
+                    // TTS 활성화 시 모델 웜업
+                    const statusEl = document.getElementById('ttsStatus');
+                    statusEl.textContent = 'TTS 모델 로딩 중...';
+
+                    try {
+                        const response = await fetch(`${TTS_ENDPOINT}/warmup`, { method: 'POST' });
+                        const data = await response.json();
+
+                        if (data.status === 'ok') {
+                            statusEl.textContent = `모델 로드됨 (샘플레이트: ${data.sample_rate})`;
+                            statusEl.className = 'rag-status active';
+                        } else {
+                            statusEl.textContent = data.message;
+                        }
+                    } catch (error) {
+                        statusEl.textContent = 'TTS 초기화 실패';
+                        e.target.checked = false;
+                    }
+                } else {
+                    // TTS 비활성화 시 재생 정지
+                    stopTTS();
+                    document.getElementById('ttsStatus').textContent = 'AI 응답을 음성으로 읽어줍니다';
+                    document.getElementById('ttsStatus').className = 'rag-status';
+                }
+            });
+        });
+
+        // ==================== 기업/병원 선택 기능 ====================
+
+        // 유형 변경 시 (일반 기업 / 병원)
+        async function onOrgTypeChange() {
+            const orgType = document.getElementById('orgTypeSelect').value;
+            selectedOrgType = orgType;
+            selectedOrg = '';
+            selectedJob = '';
+
+            // 초기화
+            document.getElementById('orgSelectGroup').style.display = 'none';
+            document.getElementById('jobSelectGroup').style.display = 'none';
+            document.getElementById('selectedInfo').style.display = 'none';
+            document.getElementById('customOrgInput').style.display = 'none';
+            document.getElementById('customJobInput').style.display = 'none';
+
+            if (!orgType) {
+                orgData = null;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${PROMPTS_ENDPOINT}/organizations/${orgType}`);
+                if (!response.ok) throw new Error('데이터 로드 실패');
+
+                orgData = await response.json();
+
+                // 기업/병원 드롭다운 채우기
+                const orgSelect = document.getElementById('orgSelect');
+                orgSelect.innerHTML = '<option value="">-- 선택하세요 --</option>';
+                orgData.organizations.forEach(org => {
+                    const option = document.createElement('option');
+                    option.value = org;
+                    option.textContent = org;
+                    orgSelect.appendChild(option);
+                });
+
+                document.getElementById('orgSelectGroup').style.display = 'block';
+
+            } catch (error) {
+                console.error('기업/병원 데이터 로드 실패:', error);
+                addSystemMessage('❌ 기업/병원 데이터를 불러올 수 없습니다.');
+            }
+        }
+
+        // 기업/병원 선택 변경
+        function onOrgChange() {
+            const org = document.getElementById('orgSelect').value;
+            selectedOrg = org;
+            selectedJob = '';
+
+            document.getElementById('customOrgInput').style.display = 'none';
+            document.getElementById('jobSelectGroup').style.display = 'none';
+            document.getElementById('customJobInput').style.display = 'none';
+
+            if (!org) {
+                document.getElementById('selectedInfo').style.display = 'none';
+                return;
+            }
+
+            // "직접 입력" 선택 시
+            if (org === '직접 입력') {
+                document.getElementById('customOrgInput').style.display = 'block';
+                document.getElementById('customOrgInput').value = '';
+                document.getElementById('customOrgInput').focus();
+            }
+
+            // 직무 드롭다운 채우기 - 모든 회사에 동일한 전체 직무 목록 표시
+            const jobSelect = document.getElementById('jobSelect');
+            jobSelect.innerHTML = '<option value="">-- 선택하세요 --</option>';
+
+            // 항상 전체 직무 목록 표시 (기업별 매핑 무시)
+            orgData.jobs.forEach(job => {
+                const option = document.createElement('option');
+                option.value = job;
+                option.textContent = job;
+                jobSelect.appendChild(option);
+            });
+
+            document.getElementById('jobSelectGroup').style.display = 'block';
+            updateSelectedInfo();
+        }
+
+        // 직무 선택 변경
+        async function onJobChange() {
+            const job = document.getElementById('jobSelect').value;
+            selectedJob = job;
+
+            document.getElementById('customJobInput').style.display = 'none';
+            currentQuestionSet = null;  // 질문셋 초기화
+
+            // "직접 입력" 선택 시
+            if (job === '직접 입력') {
+                document.getElementById('customJobInput').style.display = 'block';
+                document.getElementById('customJobInput').value = '';
+                document.getElementById('customJobInput').focus();
+            } else if (job) {
+                // 질문셋 로드
+                await loadQuestionSet();
+            }
+
+            updateSelectedInfo();
+        }
+
+        // 질문셋 로드
+        async function loadQuestionSet() {
+            if (!selectedOrgType || !selectedJob || selectedJob === '직접 입력') {
+                currentQuestionSet = null;
+                return;
+            }
+
+            // UI 직무명 → API 파라미터 변환
+            const orgTypeParam = selectedOrgType === 'company' ? '일반기업' : '병원';
+
+            // 직무명에서 슬래시 제거 (마케팅/영업 → 마케팅영업)
+            const jobNameParam = selectedJob.replace(/\//g, '');
+
+            try {
+                const response = await fetch(`${PROMPTS_ENDPOINT}/question-sets/${encodeURIComponent(orgTypeParam)}/${encodeURIComponent(jobNameParam)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    currentQuestionSet = data.text;
+                    console.log(`질문셋 로드됨: ${orgTypeParam}_${jobNameParam} (${data.count}개 질문)`);
+                } else {
+                    console.log(`질문셋 없음: ${orgTypeParam}_${jobNameParam}`);
+                    currentQuestionSet = null;
+                }
+            } catch (error) {
+                console.error('질문셋 로드 실패:', error);
+                currentQuestionSet = null;
+            }
+        }
+
+        // 선택 정보 표시 업데이트
+        function updateSelectedInfo() {
+            const customOrg = document.getElementById('customOrgInput').value.trim();
+            const customJob = document.getElementById('customJobInput').value.trim();
+
+            const orgName = selectedOrg === '직접 입력' ? customOrg : selectedOrg;
+            const jobName = selectedJob === '직접 입력' ? customJob : selectedJob;
+
+            if (orgName || jobName) {
+                let infoText = '';
+                if (orgName) infoText += `🏢 ${orgName}`;
+                if (jobName) infoText += ` / 💼 ${jobName}`;
+                document.getElementById('selectedOrgJob').textContent = infoText;
+                document.getElementById('selectedInfo').style.display = 'block';
+            } else {
+                document.getElementById('selectedInfo').style.display = 'none';
+            }
+        }
+
+        // 선택된 기업/직무 정보 가져오기
+        function getSelectedOrgJobInfo() {
+            const customOrg = document.getElementById('customOrgInput')?.value.trim() || '';
+            const customJob = document.getElementById('customJobInput')?.value.trim() || '';
+
+            const orgName = selectedOrg === '직접 입력' ? customOrg : selectedOrg;
+            const jobName = selectedJob === '직접 입력' ? customJob : selectedJob;
+
+            if (!orgName && !jobName) return null;
+
+            return {
+                type: selectedOrgType === 'company' ? '일반 기업' : '병원',
+                organization: orgName,
+                job: jobName
+            };
+        }
+
+        // ==================== 프롬프트 관리 기능 (20년차 전문 면접관 전용) ====================
+
+        // 전문 면접관 프롬프트 불러오기 (파일에서)
+        async function loadExpertPrompt() {
+            try {
+                const response = await fetch(`${PROMPTS_ENDPOINT}/file/content`);
+                if (!response.ok) {
+                    console.log('프롬프트 파일 없음, 기본값 사용');
+                    return;
+                }
+
+                const data = await response.json();
+                document.getElementById('systemPrompt').value = data.content;
+
+            } catch (error) {
+                console.error('프롬프트 로드 실패:', error);
+            }
+        }
+
+        // 전문 면접관 프롬프트 저장 (파일에)
+        async function saveExpertPrompt() {
+            const content = document.getElementById('systemPrompt').value.trim();
+
+            if (!content) {
+                alert('저장할 프롬프트 내용이 없습니다.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${PROMPTS_ENDPOINT}/file/content`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: content })
+                });
+
+                if (!response.ok) throw new Error('프롬프트 저장 실패');
+
+                const data = await response.json();
+                addSystemMessage(`💾 프롬프트가 파일에 저장되었습니다.`);
+
+            } catch (error) {
+                alert('프롬프트 저장 실패: ' + error.message);
+            }
+        }
+
+        // ==================== RAG 문서 관리 기능 ====================
+
+        // RAG 문서 목록 로드
+        async function loadRAGDocuments() {
+            try {
+                const response = await fetch(`${RAG_ENDPOINT}/documents`);
+                if (!response.ok) throw new Error('문서 목록 조회 실패');
+
+                const data = await response.json();
+                const docsList = document.getElementById('ragDocsList');
+                const statusEl = document.getElementById('ragStatus');
+
+                docsList.innerHTML = '';
+
+                if (data.documents && data.documents.length > 0) {
+                    data.documents.forEach(doc => {
+                        const docItem = document.createElement('div');
+                        docItem.className = 'rag-doc-item';
+                        docItem.innerHTML = `
+                            <span class="doc-name" title="${doc.filename}">${doc.filename}</span>
+                            <button class="doc-delete" onclick="deleteRAGDocument(${doc.id})" title="삭제">✕</button>
+                        `;
+                        docsList.appendChild(docItem);
+                    });
+                    statusEl.textContent = `문서 ${data.documents.length}개 등록됨`;
+                    statusEl.className = 'rag-status active';
+                } else {
+                    docsList.innerHTML = '<div style="color: #64748b; font-size: 11px; text-align: center; padding: 10px;">등록된 문서 없음</div>';
+                    statusEl.textContent = '문서 0개 등록됨';
+                    statusEl.className = 'rag-status';
+                }
+
+            } catch (error) {
+                console.error('RAG 문서 목록 로드 실패:', error);
+            }
+        }
+
+        // RAG 문서 업로드
+        async function uploadRAGDocument(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                alert('PDF 파일만 업로드 가능합니다.');
+                return;
+            }
+
+            const uploadBtn = document.querySelector('.rag-upload-btn');
+            const originalText = uploadBtn.innerHTML;
+            uploadBtn.innerHTML = '⏳ 업로드 중...';
+            uploadBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('collection_name', 'default');
+
+                const response = await fetch(`${RAG_ENDPOINT}/documents/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'PDF 업로드 실패');
+                }
+
+                const data = await response.json();
+                await loadRAGDocuments();  // 목록 새로고침
+                addSystemMessage(`📚 문서 "${file.name}" 업로드 완료 (${data.chunk_count}개 청크)`);
+
+                // RAG 자동 활성화
+                document.getElementById('ragEnabled').checked = true;
+
+            } catch (error) {
+                alert('문서 업로드 실패: ' + error.message);
+            } finally {
+                uploadBtn.innerHTML = originalText;
+                uploadBtn.disabled = false;
+                event.target.value = '';  // 같은 파일 재선택 가능
+            }
+        }
+
+        // RAG 문서 삭제
+        async function deleteRAGDocument(docId) {
+            if (!confirm('이 문서를 삭제하시겠습니까?')) return;
+
+            try {
+                const response = await fetch(`${RAG_ENDPOINT}/documents/${docId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('문서 삭제 실패');
+
+                await loadRAGDocuments();  // 목록 새로고침
+                addSystemMessage('📚 문서가 삭제되었습니다.');
+
+            } catch (error) {
+                alert('문서 삭제 실패: ' + error.message);
+            }
+        }
+    </script>
+
+    <!-- 프롬프트 편집 모달 -->
+    <div class="prompt-modal-overlay" id="promptModalOverlay" onclick="closePromptModal(event)">
+        <div class="prompt-modal" onclick="event.stopPropagation()">
+            <div class="prompt-modal-header">
+                <h3>📝 20년차 전문 면접관 프롬프트 편집</h3>
+                <button class="prompt-modal-close" onclick="closePromptModal()">&times;</button>
+            </div>
+            <div class="prompt-modal-body">
+                <textarea class="prompt-modal-textarea" id="promptModalTextarea" placeholder="프롬프트 내용을 입력하세요..."></textarea>
+            </div>
+            <div class="prompt-modal-footer">
+                <div class="prompt-modal-info">
+                    <span id="promptModalInfo">파일: prompts/interview_expert.txt</span>
+                </div>
+                <div class="prompt-modal-actions">
+                    <button class="prompt-modal-btn reload" onclick="reloadPromptInModal()">📥 다시 불러오기</button>
+                    <button class="prompt-modal-btn cancel" onclick="closePromptModal()">취소</button>
+                    <button class="prompt-modal-btn save" onclick="savePromptFromModal()">💾 저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 프롬프트 모달 열기
+        function openPromptModal() {
+            const overlay = document.getElementById('promptModalOverlay');
+            const textarea = document.getElementById('promptModalTextarea');
+
+            // 현재 시스템 프롬프트 내용 복사
+            textarea.value = document.getElementById('systemPrompt').value;
+
+            overlay.classList.add('active');
+            textarea.focus();
+
+            // ESC 키로 닫기
+            document.addEventListener('keydown', handleModalEsc);
+        }
+
+        // 프롬프트 모달 닫기
+        function closePromptModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+
+            const overlay = document.getElementById('promptModalOverlay');
+            overlay.classList.remove('active');
+
+            document.removeEventListener('keydown', handleModalEsc);
+        }
+
+        // ESC 키 핸들러
+        function handleModalEsc(e) {
+            if (e.key === 'Escape') {
+                closePromptModal();
+            }
+        }
+
+        // 모달에서 프롬프트 다시 불러오기
+        async function reloadPromptInModal() {
+            try {
+                const response = await fetch(`${PROMPTS_ENDPOINT}/file/content`);
+                if (!response.ok) throw new Error('불러오기 실패');
+
+                const data = await response.json();
+                document.getElementById('promptModalTextarea').value = data.content;
+                document.getElementById('promptModalInfo').textContent = `파일: prompts/interview_expert.txt | 마지막 수정: ${new Date(data.updated_at).toLocaleString('ko-KR')}`;
+
+            } catch (error) {
+                alert('프롬프트 불러오기 실패: ' + error.message);
+            }
+        }
+
+        // 모달에서 프롬프트 저장
+        async function savePromptFromModal() {
+            const content = document.getElementById('promptModalTextarea').value.trim();
+
+            if (!content) {
+                alert('저장할 프롬프트 내용이 없습니다.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${PROMPTS_ENDPOINT}/file/content`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: content })
+                });
+
+                if (!response.ok) throw new Error('저장 실패');
+
+                const data = await response.json();
+
+                // 메인 시스템 프롬프트에도 반영
+                document.getElementById('systemPrompt').value = content;
+
+                // 정보 업데이트
+                document.getElementById('promptModalInfo').textContent = `파일: prompts/interview_expert.txt | 저장됨: ${new Date().toLocaleString('ko-KR')}`;
+
+                addSystemMessage('💾 프롬프트가 파일에 저장되었습니다.');
+
+                // 모달 닫기
+                closePromptModal();
+
+            } catch (error) {
+                alert('프롬프트 저장 실패: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

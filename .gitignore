@@ -4,60 +4,42 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
 venv/
-env/
+.venv/
 ENV/
-.venv
-
-# Environment variables
-.env
-.env.local
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS
-.DS_Store
-Thumbs.db
+# Environment
+.env
+*.env.local
 
 # Database
 *.db
 *.sqlite
-*.sqlite3
-data/*.db
 
 # Logs
 *.log
 logs/
 
-# Temporary files
+# Audio files (TTS samples)
+*.mp3
+*.wav
+*.ogg
+
+# Temp files
 *.tmp
-*.bak
-*.cache
+.DS_Store
 
-# Cloudflare
-.cloudflared/
+# Data directories
+data/
+chroma_db/
 
-# Test outputs
-test_output/
+# Build
+dist/
+build/
+*.egg-info/

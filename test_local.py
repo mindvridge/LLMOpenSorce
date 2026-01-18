@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""로컬 API 테스트 스크립트"""
+from openai import OpenAI
+
+print("🧪 로컬 LLM API 테스트 시작...")
+print("=" * 60)
+
+# 로컬 클라이언트 초기화
+print("\n1️⃣ 로컬 클라이언트 초기화 중...")
+client = OpenAI(
+    api_key="sk-yMF-iN0klm6zt0E1D9nrYFejxozobeq-sNdNSqcU_hA",
+    base_url="http://localhost:8000/v1"
+)
+print("✅ 클라이언트 초기화 완료")
+
+# 모델 목록 조회
+print("\n2️⃣ 사용 가능한 모델 조회 중...")
+models = client.models.list()
+print("✅ 모델 목록:")
+for model in models.data:
+    print(f"   - {model.id}")
+
+# GPT-5.2 테스트
+print("\n3️⃣ GPT-5.2 테스트 중...")
+response = client.chat.completions.create(
+    model="gpt-5.2",
+    messages=[
+        {"role": "user", "content": "안녕하세요! 간단하게 인사해주세요."}
+    ],
+    max_tokens=100
+)
+print("✅ GPT-5.2 응답:")
+print(f"   {response.choices[0].message.content}")
+print(f"\n📊 사용량:")
+print(f"   - Prompt 토큰: {response.usage.prompt_tokens}")
+print(f"   - Completion 토큰: {response.usage.completion_tokens}")
+print(f"   - 총 토큰: {response.usage.total_tokens}")
+
+# Qwen3 32B 테스트
+print("\n4️⃣ Qwen3 32B 테스트 중...")
+response = client.chat.completions.create(
+    model="qwen3:32b",
+    messages=[
+        {"role": "user", "content": "1+1은?"}
+    ],
+    max_tokens=50
+)
+print("✅ Qwen3 32B 응답:")
+print(f"   {response.choices[0].message.content}")
+
+# DeepSeek-R1 70B 테스트
+print("\n5️⃣ DeepSeek-R1 70B 테스트 중...")
+response = client.chat.completions.create(
+    model="deepseek-r1:70b",
+    messages=[
+        {"role": "user", "content": "Python의 장점을 한 문장으로 설명해주세요."}
+    ],
+    max_tokens=50
+)
+print("✅ DeepSeek-R1 70B 응답:")
+print(f"   {response.choices[0].message.content}")
+
+# 스트리밍 테스트
+print("\n6️⃣ 스트리밍 테스트 중...")
+print("✅ GPT-5.2 스트리밍 응답:")
+print("   ", end="")
+stream = client.chat.completions.create(
+    model="gpt-5.2",
+    messages=[
+        {"role": "user", "content": "짧은 시를 하나 지어주세요."}
+    ],
+    stream=True,
+    max_tokens=100
+)
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+print()
+
+print("\n" + "=" * 60)
+print("🎉 모든 테스트 완료!")
+print("\n외부 URL: https://humanities-del-volunteer-manual.trycloudflare.com")
+print("로컬 URL: http://localhost:8000")

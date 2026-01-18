@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM API 서버 - 면접관 AI 테스트</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f9ff;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .model-select {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        select, textarea, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, textarea:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .settings {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .response-box {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .response-box:empty {
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+
+        .stat-item {
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .examples {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .example-btn {
+            padding: 10px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .example-btn:hover {
+            background: #e5e7eb;
+            border-color: #667eea;
+        }
+
+        .api-info {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .api-info strong {
+            color: #92400e;
+        }
+
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 LLM API 서버</h1>
+            <p>면접관 AI 테스트 페이지</p>
+        </div>
+
+        <div class="card">
+            <div class="status">
+                <div class="status-dot"></div>
+                <div>
+                    <strong>서버 상태:</strong> <span id="serverStatus">확인 중...</span>
+                </div>
+            </div>
+
+            <div class="api-info">
+                <strong>🔗 API 엔드포인트:</strong> <code id="apiEndpoint"></code><br>
+                <strong>📚 API 문서:</strong> <a href="/docs" target="_blank" id="docsLink"></a>
+            </div>
+
+            <div class="model-select">
+                <label for="model">모델 선택</label>
+                <select id="model">
+                    <option value="qwen3-ultra:latest" selected>Qwen3 Ultra (면접관 AI 최적)</option>
+                    <option value="bllossom-tarot:latest">Bllossom Tarot</option>
+                </select>
+            </div>
+
+            <div class="settings">
+                <div>
+                    <label for="temperature">Temperature: <span id="tempValue">0.7</span></label>
+                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                </div>
+                <div>
+                    <label for="maxTokens">Max Tokens (선택)</label>
+                    <input type="number" id="maxTokens" placeholder="비워두면 자동">
+                </div>
+            </div>
+
+            <div>
+                <label for="systemPrompt">시스템 프롬프트 (역할 설정)</label>
+                <textarea id="systemPrompt" placeholder="예: 당신은 전문 면접관입니다...">당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요.</textarea>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <label for="userMessage">사용자 메시지</label>
+                <textarea id="userMessage" placeholder="예: 프론트엔드 개발자로 지원했습니다. 3년 경력입니다.">프론트엔드 개발자로 지원했습니다. React 3년 경력이 있습니다.</textarea>
+            </div>
+
+            <div class="examples">
+                <button class="example-btn" onclick="setExample(1)">
+                    💼 프론트엔드 면접
+                </button>
+                <button class="example-btn" onclick="setExample(2)">
+                    🖥️ 백엔드 면접
+                </button>
+                <button class="example-btn" onclick="setExample(3)">
+                    📊 데이터 분석가 면접
+                </button>
+                <button class="example-btn" onclick="setExample(4)">
+                    🎨 UI/UX 디자이너 면접
+                </button>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="sendMessage(false)" id="sendBtn">
+                    💬 전송
+                </button>
+                <button class="btn-primary" onclick="sendMessage(true)" id="streamBtn">
+                    📡 스트리밍 전송
+                </button>
+                <button class="btn-secondary" onclick="clearAll()">
+                    🗑️ 초기화
+                </button>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px; color: #6b7280;">응답 생성 중...</p>
+            </div>
+
+            <div class="response-box" id="response"></div>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-label">응답 시간</div>
+                    <div class="stat-value" id="responseTime">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">토큰 사용량</div>
+                    <div class="stat-value" id="tokenUsage">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">요청 상태</div>
+                    <div class="stat-value" id="requestStatus">대기</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Base URL 자동 감지
+        const API_BASE_URL = window.location.origin;
+        const API_ENDPOINT = `${API_BASE_URL}/v1/chat/completions`;
+        const DOCS_URL = `${API_BASE_URL}/docs`;
+
+        // 페이지 로드 시 API 정보 표시
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('apiEndpoint').textContent = API_ENDPOINT;
+            const docsLink = document.getElementById('docsLink');
+            docsLink.href = DOCS_URL;
+            docsLink.textContent = DOCS_URL;
+        });
+
+        // 서버 상태 확인
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    document.getElementById('serverStatus').textContent = '✅ 정상 작동 중';
+                    document.getElementById('serverStatus').style.color = '#10b981';
+                } else {
+                    document.getElementById('serverStatus').textContent = '⚠️ 일부 기능 제한';
+                    document.getElementById('serverStatus').style.color = '#f59e0b';
+                }
+            } catch (error) {
+                document.getElementById('serverStatus').textContent = '❌ 연결 실패';
+                document.getElementById('serverStatus').style.color = '#ef4444';
+            }
+        }
+
+        // Temperature 값 업데이트
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            document.getElementById('tempValue').textContent = e.target.value;
+        });
+
+        // 예시 설정
+        function setExample(type) {
+            const examples = {
+                1: {
+                    system: '당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요.',
+                    user: '프론트엔드 개발자로 지원했습니다. React 3년 경력이 있고 TypeScript를 사용합니다.'
+                },
+                2: {
+                    system: '당신은 전문 면접관입니다. 백엔드 개발자의 기술 역량과 문제 해결 능력을 평가하세요.',
+                    user: 'Node.js와 Python을 사용하는 백엔드 개발자입니다. 5년 경력이며 MSA 아키텍처 경험이 있습니다.'
+                },
+                3: {
+                    system: '당신은 전문 면접관입니다. 데이터 분석가의 분석 능력과 비즈니스 인사이트를 평가하세요.',
+                    user: '데이터 분석가로 지원합니다. Python, SQL, Tableau를 사용하며 2년 경력입니다.'
+                },
+                4: {
+                    system: '당신은 전문 면접관입니다. UI/UX 디자이너의 디자인 사고와 사용자 중심 접근 방식을 평가하세요.',
+                    user: 'UI/UX 디자이너입니다. Figma, Adobe XD를 사용하며 4년 경력입니다.'
+                }
+            };
+
+            const example = examples[type];
+            document.getElementById('systemPrompt').value = example.system;
+            document.getElementById('userMessage').value = example.user;
+        }
+
+        // 메시지 전송 (비스트리밍)
+        async function sendMessage(stream = false) {
+            const model = document.getElementById('model').value;
+            const systemPrompt = document.getElementById('systemPrompt').value;
+            const userMessage = document.getElementById('userMessage').value;
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            const maxTokens = document.getElementById('maxTokens').value;
+
+            if (!userMessage.trim()) {
+                alert('메시지를 입력해주세요!');
+                return;
+            }
+
+            // UI 업데이트
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('response').textContent = '';
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('streamBtn').disabled = true;
+            document.getElementById('requestStatus').textContent = '전송 중';
+            document.getElementById('requestStatus').style.color = '#f59e0b';
+
+            const startTime = Date.now();
+
+            const messages = [];
+            if (systemPrompt.trim()) {
+                messages.push({ role: 'system', content: systemPrompt });
+            }
+            messages.push({ role: 'user', content: userMessage });
+
+            const payload = {
+                model: model,
+                messages: messages,
+                temperature: temperature,
+                stream: stream
+            };
+
+            if (maxTokens) {
+                payload.max_tokens = parseInt(maxTokens);
+            }
+
+            try {
+                if (stream) {
+                    await handleStreamingResponse(payload, startTime);
+                } else {
+                    await handleNormalResponse(payload, startTime);
+                }
+            } catch (error) {
+                document.getElementById('response').textContent = '❌ 오류: ' + error.message;
+                document.getElementById('requestStatus').textContent = '실패';
+                document.getElementById('requestStatus').style.color = '#ef4444';
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('streamBtn').disabled = false;
+            }
+        }
+
+        // 일반 응답 처리
+        async function handleNormalResponse(payload, startTime) {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error('API 요청 실패: ' + response.status);
+            }
+
+            const data = await response.json();
+            const endTime = Date.now();
+            const responseTime = ((endTime - startTime) / 1000).toFixed(2);
+
+            // 응답 표시
+            document.getElementById('response').textContent = data.choices[0].message.content;
+
+            // 통계 업데이트
+            document.getElementById('responseTime').textContent = responseTime + 's';
+            document.getElementById('tokenUsage').textContent = data.usage.total_tokens;
+            document.getElementById('requestStatus').textContent = '완료';
+            document.getElementById('requestStatus').style.color = '#10b981';
+        }
+
+        // 스트리밍 응답 처리
+        async function handleStreamingResponse(payload, startTime) {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error('API 요청 실패: ' + response.status);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullContent = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.substring(6);
+                        if (data === '[DONE]') continue;
+
+                        try {
+                            const json = JSON.parse(data);
+                            const content = json.choices[0]?.delta?.content;
+                            if (content) {
+                                fullContent += content;
+                                document.getElementById('response').textContent = fullContent;
+                            }
+                        } catch (e) {
+                            // JSON 파싱 오류 무시
+                        }
+                    }
+                }
+            }
+
+            const endTime = Date.now();
+            const responseTime = ((endTime - startTime) / 1000).toFixed(2);
+
+            // 통계 업데이트
+            document.getElementById('responseTime').textContent = responseTime + 's';
+            document.getElementById('tokenUsage').textContent = '~' + Math.ceil(fullContent.length / 4);
+            document.getElementById('requestStatus').textContent = '완료';
+            document.getElementById('requestStatus').style.color = '#10b981';
+        }
+
+        // 초기화
+        function clearAll() {
+            document.getElementById('response').textContent = '';
+            document.getElementById('responseTime').textContent = '-';
+            document.getElementById('tokenUsage').textContent = '-';
+            document.getElementById('requestStatus').textContent = '대기';
+            document.getElementById('requestStatus').style.color = '#667eea';
+        }
+
+        // 페이지 로드 시 서버 상태 확인
+        checkServerStatus();
+        setInterval(checkServerStatus, 10000); // 10초마다 상태 확인
+    </script>
+</body>
+</html>

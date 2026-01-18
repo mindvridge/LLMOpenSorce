@@ -24,6 +24,19 @@ class ChatCompletionRequest(BaseModel):
     presence_penalty: Optional[float] = Field(default=0.0, ge=-2.0, le=2.0)
     frequency_penalty: Optional[float] = Field(default=0.0, ge=-2.0, le=2.0)
     user: Optional[str] = None
+    # RAG 파라미터 (문서 검색)
+    rag_enabled: Optional[bool] = False
+    rag_collection: Optional[str] = "default"
+    rag_top_k: Optional[int] = Field(default=5, ge=1, le=20)
+    # 질문셋 RAG 파라미터
+    question_set_rag_enabled: Optional[bool] = False
+    question_set_org_type: Optional[str] = None  # "병원" 또는 "일반기업"
+    question_set_job_name: Optional[str] = None  # "간호사", "마케팅영업" 등
+    question_set_top_k: Optional[int] = Field(default=5, ge=1, le=10)
+    # 이력서 RAG 파라미터
+    resume_rag_enabled: Optional[bool] = False
+    resume_session_id: Optional[str] = None  # 이력서 세션 ID
+    resume_top_k: Optional[int] = Field(default=3, ge=1, le=10)
 
 
 # ===== Response Models =====
@@ -89,7 +102,7 @@ class Model(BaseModel):
     id: str
     object: str = "model"
     created: int
-    owned_by: str = "ollama"
+    owned_by: str = "vllm-mlx"
 
 
 class ModelsResponse(BaseModel):
@@ -118,5 +131,5 @@ class ErrorResponse(BaseModel):
 class HealthResponse(BaseModel):
     """헬스 체크 응답"""
     status: str
-    ollama_connected: bool
+    vllm_connected: bool
     timestamp: int

@@ -10,41 +10,34 @@ cloudflare:
   tunnel_name: "llm-api"
   # 도메인은 Cloudflare 대시보드에서 설정
 
-# Ollama
-ollama:
-  base_url: "http://localhost:11434"
+# OpenAI (ChatGPT)
+openai:
+  api_key: ""  # .env 파일에서 OPENAI_API_KEY로 설정
+  enabled: true
   timeout: 120  # 초
 
-# 기본 모델
-default_model: "qwen3-ultra:latest"
+# 기본 모델 (vLLM-MLX 사용)
+default_model: "vllm-qwen3-30b-a3b"
 
 # 사용 가능 모델 (UI에서 선택 가능)
 available_models:
-  - name: "qwen3-ultra:latest"
-    display_name: "Qwen3 Ultra"
-    context_length: 32768
-  - name: "bllossom-tarot:latest"
-    display_name: "Bllossom Tarot"
-    context_length: 8192
-  - name: "llama3.2:8b"
-    display_name: "Llama 3.2 8B"
-    context_length: 8192
-  - name: "qwen2.5:14b"
-    display_name: "Qwen 2.5 14B"
-    context_length: 32768
-  - name: "gemma2:9b"
-    display_name: "Gemma 2 9B"
-    context_length: 8192
-  - name: "mistral:7b"
-    display_name: "Mistral 7B"
-    context_length: 32768
-  - name: "deepseek-r1:14b"
-    display_name: "DeepSeek R1 14B"
-    context_length: 32768
+  # === vLLM-MLX 모델 (Continuous Batching - 추천!) ===
+  - name: "vllm-qwen3-30b-a3b"
+    display_name: "Qwen3 30B MoE (217 t/s, 동시6명) ⚡⚡"
+    context_length: 40960
+    provider: "vllm-mlx"
+    recommended_for: "최고 속도 + 동시 처리 (추천)"
+
+  # === OpenAI GPT 모델 (클라우드 백업) ===
+  - name: "gpt-5.2"
+    display_name: "GPT-5.2 (ChatGPT)"
+    context_length: 128000
+    provider: "openai"
+    recommended_for: "클라우드 백업용"
 
 # 인증
 auth:
-  enabled: true
+  enabled: false  # 비활성화 - 누구나 사용 가능
   # Admin key는 환경변수 ADMIN_API_KEY에서 로드
 
 # Rate Limiting
@@ -57,3 +50,43 @@ rate_limit:
 cors:
   allowed_origins:
     - "*"  # 또는 특정 도메인만
+
+# 로드밸런싱 설정
+load_balancing:
+  enabled: true
+  auto_fallback: true  # 자동 클라우드 전환
+  prefer_local: true   # 로컬 우선 사용
+
+  # 로컬 모델 (기본)
+  local_model: "vllm-qwen3-30b-a3b"
+
+  # 클라우드 모델 (5명 이상시 전환)
+  cloud_model: "gpt-5.2"
+
+  # 임계값 설정 (1~4명 로컬 보장, 5명부터 클라우드)
+  max_queue_size: 4      # 로컬 최대 동시 처리 (4명까지)
+  max_wait_time: 3.0     # 최대 대기 시간 (초, 빠른 전환)
+
+# 성능 최적화 설정
+optimization:
+  default_max_tokens: 4096    # 기본 최대 토큰 (메모리 절약)
+  stream_chunk_size: 10       # 스트리밍 청크 크기
+  response_timeout: 120       # 응답 타임아웃 (초)
+  preload_model: true         # 서버 시작 시 모델 프리로드
+
+# vLLM-MLX 설정 (Continuous Batching - 추천!)
+vllm_mlx:
+  enabled: true
+  base_url: "http://localhost:8001"
+  model: "mlx-community/Qwen3-30B-A3B-4bit"
+  max_tokens: 4096
+  temperature: 0.7
+  timeout: 120
+
+# MLX 설정 (단일 사용자용 - 백업)
+mlx:
+  enabled: false  # vLLM-MLX 사용 시 비활성화
+  model_path: "mlx-community/Qwen3-30B-A3B-4bit"
+  max_tokens: 4096
+  temperature: 0.7
+  preload: false
