@@ -1,7 +1,7 @@
 server:
   host: "0.0.0.0"
   port: 8000
-  workers: 4
+  workers: 8          # 4 → 8 (동시접속 증가)
   log_level: "info"
 
 # Cloudflare Tunnel
@@ -29,8 +29,8 @@ available_models:
     recommended_for: "최고 속도 + 동시 처리 (추천)"
 
   # === OpenAI GPT 모델 (클라우드 백업) ===
-  - name: "gpt-5.2"
-    display_name: "GPT-5.2 (ChatGPT)"
+  - name: "gpt-5-mini"
+    display_name: "GPT-4o Mini (ChatGPT)"
     context_length: 128000
     provider: "openai"
     recommended_for: "클라우드 백업용"
@@ -60,18 +60,18 @@ load_balancing:
   # 로컬 모델 (기본)
   local_model: "vllm-qwen3-30b-a3b"
 
-  # 클라우드 모델 (5명 이상시 전환)
-  cloud_model: "gpt-5.2"
+  # 클라우드 모델 (7명 이상시 전환)
+  cloud_model: "gpt-5-mini"
 
-  # 임계값 설정 (1~4명 로컬 보장, 5명부터 클라우드)
-  max_queue_size: 4      # 로컬 최대 동시 처리 (4명까지)
-  max_wait_time: 3.0     # 최대 대기 시간 (초, 빠른 전환)
+  # 임계값 설정 (1~6명 로컬 보장, 7명부터 클라우드)
+  max_queue_size: 6      # 로컬 최대 동시 처리 (4→6명)
+  max_wait_time: 5.0     # 최대 대기 시간 (3→5초)
 
 # 성능 최적화 설정
 optimization:
   default_max_tokens: 4096    # 기본 최대 토큰 (메모리 절약)
-  stream_chunk_size: 10       # 스트리밍 청크 크기
-  response_timeout: 120       # 응답 타임아웃 (초)
+  stream_chunk_size: 20       # 스트리밍 청크 크기 (10→20)
+  response_timeout: 180       # 응답 타임아웃 (120→180초)
   preload_model: true         # 서버 시작 시 모델 프리로드
 
 # vLLM-MLX 설정 (Continuous Batching - 추천!)
@@ -81,7 +81,7 @@ vllm_mlx:
   model: "mlx-community/Qwen3-30B-A3B-4bit"
   max_tokens: 4096
   temperature: 0.7
-  timeout: 120
+  timeout: 180         # 120 → 180 (긴 응답 허용)
 
 # MLX 설정 (단일 사용자용 - 백업)
 mlx:

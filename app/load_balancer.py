@@ -16,7 +16,7 @@ class LoadBalancerConfig:
     """로드밸런서 설정"""
     enabled: bool = True
     local_model: str = "vllm-qwen3-30b-a3b"
-    cloud_model: str = "gpt-5.2"
+    cloud_model: str = "gpt-5-mini"
 
     # 임계값 설정 (1~4명 로컬 보장, 5명부터 클라우드)
     max_queue_size: int = 4  # 로컬 최대 동시 처리

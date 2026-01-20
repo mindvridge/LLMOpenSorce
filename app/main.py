@@ -4,13 +4,14 @@ import sys
 sys.path.insert(0, '/Users/mindprep/Library/Python/3.9/lib/python/site-packages')
 
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from app.config import get_config, get_settings
-from app.routers import chat, models, health, admin, monitor, resume, prompts, rag, tts
+from app.routers import chat, models, health, admin, monitor, resume, prompts, rag
 from app.clients.openai_client import get_openai_client
 from app.clients.mlx_client import get_mlx_client
 from app.database import init_db
@@ -60,80 +61,76 @@ async def lifespan(app: FastAPI):
     print(f"   - 클라우드 모델: {lb_config.cloud_model}")
     print(f"   - 최대 동시 처리: {lb_config.max_queue_size}명 (초과 시 클라우드)")
 
-    # vLLM-MLX 웜업 (Continuous Batching 서버)
-    print("\n🔥 vLLM-MLX 웜업 중...")
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # vLLM-MLX 서버 확인
-            health_resp = await client.get("http://localhost:8001/v1/models")
-            if health_resp.status_code == 200:
-                print(f"   - vLLM-MLX 서버 연결 성공")
+    # ===== 병렬 웜업 함수 정의 =====
+    async def warmup_vllm():
+        """vLLM-MLX 웜업 (Continuous Batching 서버)"""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                health_resp = await client.get("http://localhost:8001/v1/models")
+                if health_resp.status_code == 200:
+                    warmup_resp = await client.post(
+                        "http://localhost:8001/v1/chat/completions",
+                        json={
+                            "model": "mlx-community/Qwen3-30B-A3B-4bit",
+                            "messages": [{"role": "user", "content": "Hi /nothink"}],
+                            "max_tokens": 10
+                        }
+                    )
+                    if warmup_resp.status_code == 200:
+                        return "✅ vLLM-MLX 웜업 완료"
+                    return f"⚠️  vLLM-MLX 웜업 응답 오류: {warmup_resp.status_code}"
+                return "⚠️  vLLM-MLX 서버 연결 실패"
+        except Exception as e:
+            return f"⚠️  vLLM-MLX 웜업 실패: {str(e)}"
 
-                # 웜업 추론 실행 (첫 추론 지연 제거)
-                print(f"   - 웜업 추론 실행 중...")
-                warmup_resp = await client.post(
-                    "http://localhost:8001/v1/chat/completions",
-                    json={
-                        "model": "mlx-community/Qwen3-30B-A3B-4bit",
-                        "messages": [{"role": "user", "content": "Hi /nothink"}],
-                        "max_tokens": 10
-                    }
-                )
-                if warmup_resp.status_code == 200:
-                    print(f"✅ vLLM-MLX 웜업 완료")
-                else:
-                    print(f"⚠️  vLLM-MLX 웜업 응답 오류: {warmup_resp.status_code}")
-            else:
-                print(f"⚠️  vLLM-MLX 서버 연결 실패")
-    except Exception as e:
-        print(f"⚠️  vLLM-MLX 웜업 실패: {str(e)}")
+    async def warmup_rag():
+        """RAG 임베딩 모델 및 벡터 저장소 웜업"""
+        try:
+            from app.rag.embeddings import get_embedding_client
+            from app.rag.vector_store import get_vector_store
 
-    # RAG 임베딩 모델 및 벡터 저장소 웜업
-    print("\n📚 RAG 시스템 웜업 중...")
-    try:
-        from app.rag.embeddings import get_embedding_client
-        from app.rag.vector_store import get_vector_store
+            # 임베딩 모델 로딩 (동기 작업을 스레드에서 실행)
+            embedding_client = await asyncio.to_thread(get_embedding_client)
+            await asyncio.to_thread(embedding_client.embed_query, "웜업 테스트")
 
-        # 1. 임베딩 모델 로딩
-        print("   - 임베딩 모델 로딩 중 (jhgan/ko-sroberta-multitask)...")
-        embedding_client = get_embedding_client()
-        _ = embedding_client.embed_query("웜업 테스트")
-        print("   ✅ 임베딩 모델 로딩 완료")
+            # ChromaDB 초기화
+            vector_store = await asyncio.to_thread(get_vector_store)
+            await asyncio.to_thread(vector_store.list_collections)
 
-        # 2. ChromaDB 초기화
-        print("   - ChromaDB 초기화 중...")
-        vector_store = get_vector_store()
-        _ = vector_store.list_collections()
-        print("   ✅ ChromaDB 초기화 완료")
+            return "✅ RAG 시스템 웜업 완료"
+        except Exception as e:
+            return f"⚠️  RAG 웜업 실패 (무시됨): {str(e)}"
 
-        print("✅ RAG 시스템 웜업 완료")
-    except Exception as e:
-        print(f"⚠️  RAG 웜업 실패 (무시됨): {str(e)}")
+    async def warmup_question_sets():
+        """질문셋 로드 및 인덱싱"""
+        try:
+            from app.question_sets import load_all_question_sets, index_all_question_sets
 
-    # 질문셋 로드 및 인덱싱
-    print("\n📋 질문셋 로드 중...")
-    try:
-        from app.question_sets import load_all_question_sets, index_all_question_sets
-        load_all_question_sets()
+            await asyncio.to_thread(load_all_question_sets)
+            await asyncio.to_thread(index_all_question_sets)
 
-        # 질문셋 ChromaDB 인덱싱
-        print("\n🔍 질문셋 RAG 인덱싱 중...")
-        index_all_question_sets()
-    except Exception as e:
-        print(f"⚠️  질문셋 로드/인덱싱 실패 (무시됨): {str(e)}")
+            return "✅ 질문셋 로드/인덱싱 완료"
+        except Exception as e:
+            return f"⚠️  질문셋 로드/인덱싱 실패 (무시됨): {str(e)}"
 
-    # TTS (CosyVoice) 모델 웜업
-    print("\n🎤 TTS 모델 웜업 중...")
-    try:
-        from app.routers.tts import get_cosyvoice_model
-        tts_model = get_cosyvoice_model()
-        if tts_model is not None:
-            print(f"✅ CosyVoice TTS 모델 로딩 완료 (샘플레이트: {tts_model.sample_rate})")
+    # ===== 병렬 웜업 실행 =====
+    print("\n🔥 병렬 웜업 시작 (vLLM-MLX, RAG, 질문셋)...")
+    warmup_results = await asyncio.gather(
+        warmup_vllm(),
+        warmup_rag(),
+        warmup_question_sets(),
+        return_exceptions=True
+    )
+
+    # 웜업 결과 출력
+    task_names = ["vLLM-MLX", "RAG 시스템", "질문셋"]
+    for name, result in zip(task_names, warmup_results):
+        if isinstance(result, Exception):
+            print(f"   ⚠️  {name} 웜업 예외: {str(result)}")
         else:
-            print(f"⚠️  TTS 모델 로딩 중... (백그라운드에서 계속)")
-    except Exception as e:
-        print(f"⚠️  TTS 웜업 실패 (무시됨): {str(e)}")
+            print(f"   {result}")
+
 
     print(f"\n📡 서버 실행 중:")
     print(f"   - Local: http://localhost:{settings.SERVER_PORT}")
@@ -191,7 +188,6 @@ app.include_router(monitor.router, tags=["Monitoring"])
 app.include_router(resume.router, tags=["Resume"])
 app.include_router(prompts.router, tags=["Prompts"])
 app.include_router(rag.router, tags=["RAG"])
-app.include_router(tts.router, tags=["TTS"])
 
 
 # 루트 엔드포인트

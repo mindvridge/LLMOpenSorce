@@ -159,7 +159,34 @@ def get_job_mapping() -> Dict[str, str]:
 # ==================== RAG 기반 질문셋 검색 ====================
 
 # 질문셋 컬렉션 접두사
-QUESTION_SET_COLLECTION_PREFIX = "question_set_"
+QUESTION_SET_COLLECTION_PREFIX = "qset_"
+
+# 한글 키 → 영문 컬렉션명 매핑 (ChromaDB는 영문만 지원)
+_KEY_TO_COLLECTION = {
+    "병원_간호사": "hospital_nurse",
+    "병원_국제의료관광코디네이터": "hospital_medical_tourism",
+    "일반기업_마케팅영업": "corp_marketing_sales",
+    "일반기업_개발엔지니어링": "corp_dev_engineering",
+    "일반기업_고객서비스CS": "corp_customer_service",
+    "일반기업_인사HR": "corp_hr",
+    "일반기업_운영관리": "corp_operations",
+    "일반기업_기획전략": "corp_strategy",
+    "일반기업_재무회계": "corp_finance",
+    "일반기업_품질관리QA": "corp_qa",
+    "일반기업_글로벌 마케팅": "corp_global_marketing",
+    "일반기업_법무컴플라이언스": "corp_legal",
+    "일반기업_해외영업": "corp_overseas_sales",
+}
+
+def _get_collection_name(key: str) -> str:
+    """한글 키를 영문 컬렉션명으로 변환"""
+    eng_name = _KEY_TO_COLLECTION.get(key)
+    if eng_name:
+        return f"{QUESTION_SET_COLLECTION_PREFIX}{eng_name}"
+    # 매핑이 없으면 해시 사용
+    import hashlib
+    hash_suffix = hashlib.md5(key.encode()).hexdigest()[:8]
+    return f"{QUESTION_SET_COLLECTION_PREFIX}{hash_suffix}"
 
 
 def index_all_question_sets() -> Dict[str, int]:
@@ -180,7 +207,7 @@ def index_all_question_sets() -> Dict[str, int]:
         if not questions:
             continue
 
-        collection_name = f"{QUESTION_SET_COLLECTION_PREFIX}{key}"
+        collection_name = _get_collection_name(key)
 
         # 기존 컬렉션 삭제 후 재생성
         try:
@@ -259,7 +286,7 @@ def search_relevant_questions(
         else:
             return []
 
-    collection_name = f"{QUESTION_SET_COLLECTION_PREFIX}{key}"
+    collection_name = _get_collection_name(key)
 
     embedding_client = get_embedding_client()
     vector_store = get_vector_store()

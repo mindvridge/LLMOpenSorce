@@ -622,36 +622,6 @@
             cursor: not-allowed;
         }
 
-        /* PDF 첨부 버튼 */
-        .attach-btn {
-            padding: 14px 16px;
-            background: #334155;
-            color: #e2e8f0;
-            border: 2px solid #475569;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 18px;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .attach-btn:hover {
-            border-color: #667eea;
-            background: #3f4f63;
-        }
-
-        .attach-btn.has-file {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.1);
-            color: #10b981;
-        }
-
-        #resumeInput {
-            display: none;
-        }
-
         .resume-info {
             display: none;
             margin-bottom: 12px;
@@ -1115,7 +1085,7 @@
                         <option value="vllm-qwen3-30b-a3b" selected>Qwen3 30B MoE (217 t/s) 🏆</option>
                     </optgroup>
                     <optgroup label="☁️ 클라우드 API">
-                        <option value="gpt-5.2">GPT-5.2 (OpenAI)</option>
+                        <option value="gpt-5-mini">GPT-5 Mini (OpenAI)</option>
                     </optgroup>
                 </select>
 
@@ -1150,6 +1120,19 @@
 
                     <div class="selected-info" id="selectedInfo" style="display: none;">
                         <span id="selectedOrgJob"></span>
+                    </div>
+
+                    <!-- 채용공고 입력 (선택) -->
+                    <div class="settings-group" style="margin-top: 12px;">
+                        <label style="display: flex; align-items: center; gap: 6px;">
+                            📋 채용공고/직무기술서 <span style="color: #64748b; font-size: 11px;">(선택)</span>
+                        </label>
+                        <textarea class="custom-input" id="jobPostingInput"
+                            placeholder="채용공고 또는 직무기술서 내용을 붙여넣으세요..."
+                            style="min-height: 80px; resize: vertical; margin-top: 6px;"></textarea>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                            입력 시 프롬프트에 자동 반영됩니다
+                        </div>
                     </div>
                 </div>
 
@@ -1221,31 +1204,17 @@
                         </label>
                     </div>
 
+                    <input type="file" id="resumeFileInput" accept=".pdf" style="display: none;" onchange="uploadResumeDocument(event)">
+                    <button class="rag-upload-btn" id="resumeUploadBtn" onclick="document.getElementById('resumeFileInput').click()">
+                        📄 이력서 PDF 업로드
+                    </button>
+
                     <div class="rag-status" id="resumeRagStatus" style="font-size: 11px;">
                         이력서 첨부 시 관련 내용 자동 검색
                     </div>
                 </div>
 
-                <!-- TTS 섹션 -->
-                <div class="rag-section" style="margin-top: 15px;">
-                    <div class="rag-section-title">
-                        🎤 음성 출력 (TTS)
-                    </div>
-
-                    <div class="rag-toggle">
-                        <label>TTS 자동 재생</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="ttsEnabled">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="rag-status" id="ttsStatus" style="font-size: 11px;">
-                        AI 응답을 음성으로 읽어줍니다
-                    </div>
-                </div>
-
-                <button class="clear-btn" onclick="clearAllChats()">
+                <button class="clear-btn" onclick="clearAllChats()" style="margin-top: 15px;">
                     🗑️ 모든 대화 삭제
                 </button>
             </div>
@@ -1307,10 +1276,6 @@
                 </div>
 
                 <div class="input-wrapper">
-                    <input type="file" id="resumeInput" accept=".pdf" onchange="handleResumeUpload(event)">
-                    <button class="attach-btn" id="attachBtn" onclick="document.getElementById('resumeInput').click()" title="이력서 PDF 첨부">
-                        📎
-                    </button>
                     <textarea
                         id="messageInput"
                         placeholder="메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)"
@@ -1322,7 +1287,7 @@
                     </button>
                 </div>
                 <div class="input-hint">
-                    💡 <strong>Enter</strong>로 전송 | <strong>Shift + Enter</strong>로 줄바꿈 | <strong>📎</strong> 이력서 PDF 첨부
+                    💡 <strong>Enter</strong>로 전송 | <strong>Shift + Enter</strong>로 줄바꿈
                 </div>
             </div>
         </div>
@@ -1336,7 +1301,6 @@
         const RAG_ENDPOINT = `${API_BASE_URL}/rag`;
         const RESUME_ENDPOINT = `${API_BASE_URL}/resume`;
         const PROMPTS_ENDPOINT = `${API_BASE_URL}/prompts`;
-        const TTS_ENDPOINT = `${API_BASE_URL}/tts`;
 
         // 전역 상태
         let conversations = JSON.parse(localStorage.getItem('conversations')) || [];
@@ -1352,9 +1316,6 @@
         let selectedOrg = '';
         let selectedJob = '';
         let currentQuestionSet = null;  // 현재 로드된 질문셋
-        let ttsAudio = null;  // 현재 재생 중인 TTS 오디오
-        let ttsQueue = [];    // TTS 재생 대기열
-        let isTTSPlaying = false;  // TTS 재생 중 여부
 
         // 초기화
         document.addEventListener('DOMContentLoaded', () => {
@@ -1521,6 +1482,15 @@
             if (orgJobInfo) {
                 const orgJobContext = `\n\n[면접 대상 정보]\n- 유형: ${orgJobInfo.type}\n- 기업/병원명: ${orgJobInfo.organization || '미지정'}\n- 지원 직무: ${orgJobInfo.job || '미지정'}`;
                 systemPrompt += orgJobContext;
+            }
+
+            // 채용공고/직무기술서 주입 (프롬프트의 {JOB_POSTING} 플레이스홀더 대체)
+            const jobPosting = document.getElementById('jobPostingInput').value.trim();
+            if (jobPosting) {
+                systemPrompt = systemPrompt.replace('{JOB_POSTING}', jobPosting);
+            } else {
+                // 채용공고가 없으면 플레이스홀더 제거
+                systemPrompt = systemPrompt.replace('{JOB_POSTING}', '(채용공고 미입력)');
             }
 
             // 질문셋 주입 (프롬프트의 {JOB_ROLE_SET} 플레이스홀더 대체)
@@ -1776,14 +1746,6 @@
                 // 대화 저장
                 saveCurrentConversation();
 
-                // TTS 자동 재생 (활성화된 경우)
-                const ttsEnabled = document.getElementById('ttsEnabled').checked;
-                console.log('[TTS] TTS 활성화 여부:', ttsEnabled, ', 메시지 길이:', assistantMessage?.length);
-                if (ttsEnabled && assistantMessage) {
-                    console.log('[TTS] TTS 재생 시작...');
-                    playTTS(assistantMessage);
-                }
-
             } catch (error) {
                 hideTypingIndicator();
                 addSystemMessage('❌ 오류: ' + error.message);
@@ -1947,59 +1909,6 @@
             }
         }
 
-        // 이력서 PDF 업로드 처리
-        async function handleResumeUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            if (!file.name.toLowerCase().endsWith('.pdf')) {
-                alert('PDF 파일만 업로드 가능합니다.');
-                return;
-            }
-
-            // 업로드 중 표시
-            const attachBtn = document.getElementById('attachBtn');
-            attachBtn.textContent = '⏳';
-            attachBtn.disabled = true;
-
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                const response = await fetch(`${RESUME_ENDPOINT}/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'PDF 업로드 실패');
-                }
-
-                const data = await response.json();
-                resumeSessionId = data.session_id;
-                resumeSummary = data.summary;
-
-                // UI 업데이트
-                document.getElementById('resumeFilename').textContent = file.name;
-                document.getElementById('resumeInfo').classList.add('active');
-                attachBtn.classList.add('has-file');
-                attachBtn.textContent = '📄';
-
-                // 시스템 프롬프트에 이력서 정보 추가
-                updateSystemPromptWithResume();
-
-                addSystemMessage(`📄 이력서 "${file.name}" 업로드 완료! 면접 질문에 활용됩니다.`);
-
-            } catch (error) {
-                alert('이력서 업로드 실패: ' + error.message);
-                attachBtn.textContent = '📎';
-            } finally {
-                attachBtn.disabled = false;
-                event.target.value = ''; // 같은 파일 재선택 가능하도록
-            }
-        }
-
         // 이력서 제거
         async function removeResume() {
             if (resumeSessionId) {
@@ -2014,9 +1923,12 @@
 
             resumeSessionId = null;
             resumeSummary = null;
-            document.getElementById('resumeInfo').classList.remove('active');
-            document.getElementById('attachBtn').classList.remove('has-file');
-            document.getElementById('attachBtn').textContent = '📎';
+            document.getElementById('resumeInfo').style.display = 'none';
+            document.getElementById('resumeRagStatus').textContent = '이력서 첨부 시 관련 내용 자동 검색';
+
+            // 이력서 RAG 비활성화
+            document.getElementById('resumeRagEnabled').checked = false;
+            updateResumeRagStatus();
 
             // 시스템 프롬프트 복원
             resetSystemPrompt();
@@ -2055,147 +1967,48 @@ ${resumeSummary}
             document.getElementById('systemPrompt').value = '당신은 전문 면접관입니다. 지원자의 역량을 평가하기 위해 적절한 질문을 하세요. /nothink';
         }
 
+        // 이력서 RAG 상태 업데이트
+        function updateResumeRagStatus() {
+            const enabled = document.getElementById('resumeRagEnabled').checked;
+            const statusEl = document.getElementById('resumeRagStatus');
+            if (enabled && resumeSessionId) {
+                statusEl.textContent = '✅ 이력서 RAG 활성화됨';
+                statusEl.style.color = '#10b981';
+            } else if (resumeSessionId) {
+                statusEl.textContent = '이력서 첨부됨 (RAG 비활성화)';
+                statusEl.style.color = '#f59e0b';
+            } else {
+                statusEl.textContent = '이력서 첨부 시 관련 내용 자동 검색';
+                statusEl.style.color = '#94a3b8';
+            }
+        }
+
+        // 질문셋 RAG 상태 업데이트
+        function updateQuestionSetRagStatus() {
+            const enabled = document.getElementById('questionSetRagEnabled').checked;
+            const statusEl = document.getElementById('questionSetRagStatus');
+            const jobInfo = getSelectedOrgJobInfo();
+
+            if (enabled && jobInfo && jobInfo.job) {
+                statusEl.textContent = `✅ ${jobInfo.job} 질문셋 RAG 활성화됨`;
+                statusEl.style.color = '#10b981';
+            } else if (jobInfo && jobInfo.job) {
+                statusEl.textContent = `${jobInfo.job} 질문셋 사용 가능 (RAG 비활성화)`;
+                statusEl.style.color = '#f59e0b';
+            } else {
+                statusEl.textContent = '직무 선택 시 관련 질문 자동 검색';
+                statusEl.style.color = '#94a3b8';
+            }
+        }
+
+        // 이력서 RAG 토글 변경 이벤트
+        document.getElementById('resumeRagEnabled').addEventListener('change', updateResumeRagStatus);
+
+        // 질문셋 RAG 토글 변경 이벤트
+        document.getElementById('questionSetRagEnabled').addEventListener('change', updateQuestionSetRagStatus);
+
         // 10초마다 서버 상태 확인
         setInterval(checkServerStatus, 10000);
-
-        // ==================== TTS 기능 ====================
-
-        // TTS 상태 확인
-        async function checkTTSStatus() {
-            try {
-                const response = await fetch(`${TTS_ENDPOINT}/status`);
-                const data = await response.json();
-
-                const statusEl = document.getElementById('ttsStatus');
-                if (data.available && data.model_loaded) {
-                    statusEl.textContent = `모델 로드됨 (${data.device})`;
-                    statusEl.className = 'rag-status active';
-                } else if (data.available) {
-                    statusEl.textContent = '모델 로딩 중...';
-                    statusEl.className = 'rag-status';
-                } else {
-                    statusEl.textContent = 'TTS 사용 불가';
-                    statusEl.className = 'rag-status';
-                }
-                return data;
-            } catch (error) {
-                console.error('TTS 상태 확인 실패:', error);
-                document.getElementById('ttsStatus').textContent = 'TTS 연결 실패';
-                return null;
-            }
-        }
-
-        // TTS 음성 재생
-        async function playTTS(text) {
-            console.log('[TTS] playTTS 호출됨, 텍스트 길이:', text?.length);
-            if (!text || text.trim().length === 0) {
-                console.log('[TTS] 텍스트가 비어있어 건너뜀');
-                return;
-            }
-
-            // 상태 업데이트
-            const statusEl = document.getElementById('ttsStatus');
-            statusEl.textContent = '음성 생성 중...';
-            console.log('[TTS] 음성 생성 요청 시작...');
-
-            try {
-                const response = await fetch(`${TTS_ENDPOINT}/synthesize`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        text: text,
-                        speed: 1.0
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'TTS 합성 실패');
-                }
-
-                // 오디오 Blob 생성
-                const audioBlob = await response.blob();
-                console.log('[TTS] 오디오 Blob 생성됨, 크기:', audioBlob.size, 'bytes');
-                const audioUrl = URL.createObjectURL(audioBlob);
-
-                // 기존 오디오 정지
-                if (ttsAudio) {
-                    ttsAudio.pause();
-                    URL.revokeObjectURL(ttsAudio.src);
-                }
-
-                // 새 오디오 재생
-                ttsAudio = new Audio(audioUrl);
-                isTTSPlaying = true;
-                statusEl.textContent = '재생 중...';
-                statusEl.className = 'rag-status active';
-
-                ttsAudio.onended = () => {
-                    isTTSPlaying = false;
-                    URL.revokeObjectURL(audioUrl);
-                    statusEl.textContent = 'AI 응답을 음성으로 읽어줍니다';
-                    statusEl.className = 'rag-status';
-                };
-
-                ttsAudio.onerror = () => {
-                    isTTSPlaying = false;
-                    statusEl.textContent = '재생 오류';
-                    console.error('TTS 오디오 재생 오류');
-                };
-
-                console.log('[TTS] 오디오 재생 시작...');
-                await ttsAudio.play();
-                console.log('[TTS] 재생 성공!');
-
-            } catch (error) {
-                console.error('[TTS] 재생 실패:', error);
-                statusEl.textContent = `오류: ${error.message}`;
-                isTTSPlaying = false;
-            }
-        }
-
-        // TTS 정지
-        function stopTTS() {
-            if (ttsAudio) {
-                ttsAudio.pause();
-                ttsAudio.currentTime = 0;
-                isTTSPlaying = false;
-                document.getElementById('ttsStatus').textContent = 'AI 응답을 음성으로 읽어줍니다';
-            }
-        }
-
-        // TTS 토글 변경 시 모델 웜업
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('ttsEnabled').addEventListener('change', async (e) => {
-                if (e.target.checked) {
-                    // TTS 활성화 시 모델 웜업
-                    const statusEl = document.getElementById('ttsStatus');
-                    statusEl.textContent = 'TTS 모델 로딩 중...';
-
-                    try {
-                        const response = await fetch(`${TTS_ENDPOINT}/warmup`, { method: 'POST' });
-                        const data = await response.json();
-
-                        if (data.status === 'ok') {
-                            statusEl.textContent = `모델 로드됨 (샘플레이트: ${data.sample_rate})`;
-                            statusEl.className = 'rag-status active';
-                        } else {
-                            statusEl.textContent = data.message;
-                        }
-                    } catch (error) {
-                        statusEl.textContent = 'TTS 초기화 실패';
-                        e.target.checked = false;
-                    }
-                } else {
-                    // TTS 비활성화 시 재생 정지
-                    stopTTS();
-                    document.getElementById('ttsStatus').textContent = 'AI 응답을 음성으로 읽어줍니다';
-                    document.getElementById('ttsStatus').className = 'rag-status';
-                }
-            });
-        });
 
         // ==================== 기업/병원 선택 기능 ====================
 
@@ -2296,6 +2109,10 @@ ${resumeSummary}
             } else if (job) {
                 // 질문셋 로드
                 await loadQuestionSet();
+
+                // 질문셋 RAG 자동 활성화
+                document.getElementById('questionSetRagEnabled').checked = true;
+                updateQuestionSetRagStatus();
             }
 
             updateSelectedInfo();
@@ -2487,6 +2304,63 @@ ${resumeSummary}
 
             } catch (error) {
                 alert('문서 업로드 실패: ' + error.message);
+            } finally {
+                uploadBtn.innerHTML = originalText;
+                uploadBtn.disabled = false;
+                event.target.value = '';  // 같은 파일 재선택 가능
+            }
+        }
+
+        // 이력서 PDF 업로드
+        async function uploadResumeDocument(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                alert('PDF 파일만 업로드 가능합니다.');
+                return;
+            }
+
+            const uploadBtn = document.getElementById('resumeUploadBtn');
+            const originalText = uploadBtn.innerHTML;
+            uploadBtn.innerHTML = '⏳ 업로드 중...';
+            uploadBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch(`${RESUME_ENDPOINT}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '이력서 업로드 실패');
+                }
+
+                const data = await response.json();
+
+                // 세션 ID 저장
+                resumeSessionId = data.session_id;
+
+                // UI 업데이트
+                document.getElementById('resumeInfo').style.display = 'flex';
+                document.getElementById('resumeFilename').textContent = file.name;
+
+                // 이력서 RAG 자동 활성화
+                document.getElementById('resumeRagEnabled').checked = true;
+                updateResumeRagStatus();
+
+                // 상태 업데이트
+                document.getElementById('resumeRagStatus').textContent =
+                    `✅ "${file.name}" (${data.chunk_count}개 청크)`;
+
+                addSystemMessage(`📄 이력서 "${file.name}" 업로드 완료 (${data.chunk_count}개 청크로 인덱싱됨)`);
+
+            } catch (error) {
+                alert('이력서 업로드 실패: ' + error.message);
             } finally {
                 uploadBtn.innerHTML = originalText;
                 uploadBtn.disabled = false;

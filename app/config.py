@@ -58,7 +58,7 @@ class LoadBalancingConfig(BaseModel):
     auto_fallback: bool = True
     prefer_local: bool = True
     local_model: str = "vllm-qwen3-30b-a3b"
-    cloud_model: str = "gpt-5.2"
+    cloud_model: str = "gpt-5-mini"
     max_queue_size: int = 4
     max_wait_time: float = 3.0
 

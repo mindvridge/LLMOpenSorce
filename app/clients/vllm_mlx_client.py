@@ -23,9 +23,16 @@ class VLLMMLXClient:
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """세션 가져오기"""
+        """세션 가져오기 (연결 풀링 적용)"""
         if self._session is None or self._session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=100,           # 최대 연결 수
+                limit_per_host=50,   # 호스트당 연결
+                keepalive_timeout=30,
+                enable_cleanup_closed=True
+            )
             self._session = aiohttp.ClientSession(
+                connector=connector,
                 timeout=aiohttp.ClientTimeout(total=self.config.timeout)
             )
         return self._session
