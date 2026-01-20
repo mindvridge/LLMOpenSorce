@@ -37,8 +37,8 @@ class ChatCompletionRequest(BaseModel):
     resume_rag_enabled: Optional[bool] = False
     resume_session_id: Optional[str] = None  # 이력서 세션 ID
     resume_top_k: Optional[int] = Field(default=3, ge=1, le=10)
-    # 면접 컨텍스트 파라미터 (직접 전달)
-    company_name: str  # 기업/병원명 (필수, 예: "삼성전자", "서울대병원")
+    # 면접 컨텍스트 파라미터 (직접 전달, 모두 선택)
+    company_name: Optional[str] = None  # 기업/병원명 (선택, 예: "삼성전자", "서울대병원")
     job_posting: Optional[str] = None   # 채용공고 텍스트 (선택)
     resume_text: Optional[str] = None   # 요약된 이력서 텍스트 (선택)
 
