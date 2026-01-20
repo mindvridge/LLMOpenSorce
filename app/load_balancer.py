@@ -105,6 +105,19 @@ class LoadBalancer:
                 "queue_status": dict
             }
         """
+        # 로드밸런싱 비활성화 시 원래 모델 그대로 사용
+        if not self.config.enabled:
+            return {
+                "model": requested_model,  # 원래 요청 모델 유지
+                "provider": "passthrough",
+                "reason": "로드밸런싱 비활성화",
+                "original_model": requested_model,
+                "queue_status": {
+                    "current_requests": self.queue_status.current_requests,
+                    "avg_response_time": round(self.queue_status.avg_response_time, 2)
+                }
+            }
+
         use_cloud, reason = self.should_use_cloud(requested_model)
 
         if use_cloud:
