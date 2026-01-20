@@ -200,3 +200,14 @@ async def route_test(model: str = "vllm-qwen3-30b-a3b") -> Dict[str, Any]:
         "routed_to": route,
         "current_status": lb.get_status()
     }
+
+
+@router.get("/rag-cache")
+async def rag_cache_status() -> Dict[str, Any]:
+    """RAG 캐시 상태 (컨텍스트 + 임베딩)"""
+    from app.routers.chat import get_rag_cache_stats
+
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "rag_cache": get_rag_cache_stats()
+    }

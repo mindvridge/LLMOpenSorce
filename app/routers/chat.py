@@ -44,12 +44,13 @@ def is_vllm_mlx_model(model: str) -> bool:
     return model.startswith("vllm-")
 
 
-# ===== RAG 컨텍스트 캐싱 =====
-RAG_CONTEXT_CACHE_SIZE = 100  # 최대 캐시 항목
-RAG_CONTEXT_CACHE_TTL = 300   # 5분 TTL
+# ===== RAG 컨텍스트 캐싱 (강화) =====
+RAG_CONTEXT_CACHE_SIZE = 500   # 100 → 500 (5배 증가)
+RAG_CONTEXT_CACHE_TTL = 1800   # 5분 → 30분 (6배 증가)
 _rag_context_cache: OrderedDict = OrderedDict()
 _rag_cache_hits = 0
 _rag_cache_misses = 0
+_rag_cache_lock = asyncio.Lock()  # 비동기 락
 
 
 def _get_rag_cache_key(
@@ -95,21 +96,34 @@ def _add_rag_to_cache(cache_key: str, result: Tuple[str, List[str]]):
 
 
 def get_rag_cache_stats() -> dict:
-    """RAG 캐시 통계"""
+    """RAG 캐시 통계 (임베딩 캐시 포함)"""
+    from app.rag.embeddings import get_embedding_client
+
     total = _rag_cache_hits + _rag_cache_misses
     hit_rate = (_rag_cache_hits / total * 100) if total > 0 else 0
+
+    # 임베딩 캐시 통계도 포함
+    try:
+        embedding_stats = get_embedding_client().get_cache_stats()
+    except:
+        embedding_stats = {}
+
     return {
-        "cache_size": len(_rag_context_cache),
-        "max_size": RAG_CONTEXT_CACHE_SIZE,
-        "hits": _rag_cache_hits,
-        "misses": _rag_cache_misses,
-        "hit_rate": f"{hit_rate:.1f}%"
+        "context_cache": {
+            "cache_size": len(_rag_context_cache),
+            "max_size": RAG_CONTEXT_CACHE_SIZE,
+            "hits": _rag_cache_hits,
+            "misses": _rag_cache_misses,
+            "hit_rate": f"{hit_rate:.1f}%",
+            "ttl_seconds": RAG_CONTEXT_CACHE_TTL
+        },
+        "embedding_cache": embedding_stats
     }
 
 
-# ===== RAG 타임아웃 설정 =====
-RAG_TIMEOUT = 1.5  # 전체 RAG 처리 타임아웃 (1.5초)
-RAG_INDIVIDUAL_TIMEOUT = 1.0  # 개별 RAG 타임아웃 (1초)
+# ===== RAG 타임아웃 설정 (GPU 가속으로 여유 확보) =====
+RAG_TIMEOUT = 2.0  # 전체 RAG 처리 타임아웃 (1.5초 → 2초)
+RAG_INDIVIDUAL_TIMEOUT = 1.5  # 개별 RAG 타임아웃 (1초 → 1.5초)
 
 
 # ===== 스트리밍 청크 배치 설정 =====
