@@ -52,7 +52,12 @@ class OpenAIClient:
 
     def is_openai_model(self, model: str) -> bool:
         """OpenAI 모델인지 확인"""
-        openai_models = ["gpt-5-mini", "gpt-5.2", "gpt-4o", "gpt-4o-mini", "o1", "o1-mini", "gpt-4", "gpt-3.5-turbo"]
+        openai_models = [
+            "gpt-5", "gpt-5-mini",  # GPT-5 시리즈
+            "gpt-4o", "gpt-4o-mini", "gpt-4",  # GPT-4 시리즈
+            "o1", "o1-mini", "o3-mini",  # o 시리즈
+            "gpt-3.5-turbo"
+        ]
         return any(model.startswith(m) for m in openai_models)
 
     async def chat_completion(

@@ -29,8 +29,14 @@ available_models:
     recommended_for: "최고 속도 + 동시 처리 (추천)"
 
   # === OpenAI GPT 모델 (클라우드 백업) ===
+  - name: "gpt-5"
+    display_name: "GPT-5 (최신)"
+    context_length: 128000
+    provider: "openai"
+    recommended_for: "최고 성능 OpenAI 모델"
+
   - name: "gpt-5-mini"
-    display_name: "GPT-4o Mini (ChatGPT)"
+    display_name: "GPT-5 Mini (빠름)"
     context_length: 128000
     provider: "openai"
     recommended_for: "클라우드 백업용"
