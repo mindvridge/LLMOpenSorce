@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from app.config import get_config, get_settings
+from app.config import get_config, get_settings, is_railway_environment
 from app.routers import chat, models, health, admin, monitor, resume, prompts, rag
 from app.clients.openai_client import get_openai_client
 from app.clients.mlx_client import get_mlx_client
@@ -114,17 +114,30 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             return f"⚠️  질문셋 로드/인덱싱 실패 (무시됨): {str(e)}"
 
-    # ===== 병렬 웜업 실행 =====
-    print("\n🔥 병렬 웜업 시작 (vLLM-MLX, RAG, 질문셋)...")
-    warmup_results = await asyncio.gather(
-        warmup_vllm(),
-        warmup_rag(),
-        warmup_question_sets(),
-        return_exceptions=True
-    )
+    # ===== 병렬 웜업 실행 (환경에 따라 다름) =====
+    is_railway = is_railway_environment()
+
+    if is_railway:
+        # Railway 환경: vLLM-MLX 건너뛰기 (클라우드 API만 사용)
+        print("\n🔥 병렬 웜업 시작 (RAG, 질문셋) - Railway 모드")
+        warmup_results = await asyncio.gather(
+            warmup_rag(),
+            warmup_question_sets(),
+            return_exceptions=True
+        )
+        task_names = ["RAG 시스템", "질문셋"]
+    else:
+        # 로컬 환경: 전체 웜업
+        print("\n🔥 병렬 웜업 시작 (vLLM-MLX, RAG, 질문셋) - 로컬 모드")
+        warmup_results = await asyncio.gather(
+            warmup_vllm(),
+            warmup_rag(),
+            warmup_question_sets(),
+            return_exceptions=True
+        )
+        task_names = ["vLLM-MLX", "RAG 시스템", "질문셋"]
 
     # 웜업 결과 출력
-    task_names = ["vLLM-MLX", "RAG 시스템", "질문셋"]
     for name, result in zip(task_names, warmup_results):
         if isinstance(result, Exception):
             print(f"   ⚠️  {name} 웜업 예외: {str(result)}")

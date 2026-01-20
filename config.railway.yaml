@@ -1,0 +1,90 @@
+# Railway 배포용 설정 (클라우드 API 전용, GPU 없음)
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  log_level: "info"
+
+# OpenAI (ChatGPT) - Railway에서 주력 사용
+openai:
+  api_key: ""  # 환경변수 OPENAI_API_KEY에서 로드
+  enabled: true
+  timeout: 120
+
+# 기본 모델 (OpenAI 사용)
+default_model: "gpt-5-mini"
+
+# 사용 가능 모델 (클라우드 모델만)
+available_models:
+  - name: "gpt-5"
+    display_name: "GPT-5 (최신)"
+    context_length: 128000
+    provider: "openai"
+    recommended_for: "최고 성능 OpenAI 모델"
+
+  - name: "gpt-5-mini"
+    display_name: "GPT-5 Mini (빠름)"
+    context_length: 128000
+    provider: "openai"
+    recommended_for: "빠른 응답 (기본)"
+
+  - name: "gpt-4o"
+    display_name: "GPT-4o"
+    context_length: 128000
+    provider: "openai"
+    recommended_for: "범용 모델"
+
+  - name: "gpt-4o-mini"
+    display_name: "GPT-4o Mini"
+    context_length: 128000
+    provider: "openai"
+    recommended_for: "경제적 선택"
+
+# 인증
+auth:
+  enabled: false
+
+# Rate Limiting
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  tokens_per_minute: 100000
+
+# CORS
+cors:
+  allowed_origins:
+    - "*"
+
+# 로드밸런싱 (Railway에서는 비활성화 - 클라우드만 사용)
+load_balancing:
+  enabled: false
+  auto_fallback: false
+  prefer_local: false
+  local_model: ""
+  cloud_model: "gpt-5-mini"
+  max_queue_size: 10
+  max_wait_time: 5.0
+
+# 성능 최적화
+optimization:
+  default_max_tokens: 4096
+  stream_chunk_size: 20
+  response_timeout: 180
+  preload_model: false
+
+# vLLM-MLX (Railway에서는 비활성화)
+vllm_mlx:
+  enabled: false
+  base_url: ""
+  model: ""
+  max_tokens: 4096
+  temperature: 0.7
+  timeout: 180
+
+# MLX (Railway에서는 비활성화)
+mlx:
+  enabled: false
+  model_path: ""
+  max_tokens: 4096
+  temperature: 0.7
+  preload: false

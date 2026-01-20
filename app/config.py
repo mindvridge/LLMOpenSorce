@@ -89,8 +89,22 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
 
-def load_config(config_path: str = "config.yaml") -> AppConfig:
-    """YAML 설정 파일 로드"""
+def is_railway_environment() -> bool:
+    """Railway 환경인지 확인"""
+    return os.environ.get("DEPLOY_ENV") == "railway" or os.environ.get("RAILWAY_ENVIRONMENT") is not None
+
+
+def load_config(config_path: str = None) -> AppConfig:
+    """YAML 설정 파일 로드 (환경에 따라 자동 선택)"""
+    # 설정 파일 경로 자동 선택
+    if config_path is None:
+        if is_railway_environment():
+            config_path = "config.railway.yaml"
+            print("🚂 Railway 환경 감지 - config.railway.yaml 사용")
+        else:
+            config_path = "config.yaml"
+            print("🖥️  로컬 환경 - config.yaml 사용")
+
     config_file = Path(config_path)
 
     if not config_file.exists():
