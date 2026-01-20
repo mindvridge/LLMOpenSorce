@@ -5,6 +5,11 @@ server:
   workers: 4
   log_level: "info"
 
+# Cloudflare Tunnel (Railway에서는 비활성화)
+cloudflare:
+  enabled: false
+  tunnel_name: ""
+
 # OpenAI (ChatGPT) - Railway에서 주력 사용
 openai:
   api_key: ""  # 환경변수 OPENAI_API_KEY에서 로드
