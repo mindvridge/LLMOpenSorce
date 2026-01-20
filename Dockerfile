@@ -20,9 +20,10 @@ COPY . .
 # 환경변수 설정
 ENV PYTHONUNBUFFERED=1
 ENV DEPLOY_ENV=railway
+ENV PORT=8000
 
-# 포트 노출 (Railway는 PORT 환경변수 사용)
+# 포트 노출
 EXPOSE 8000
 
-# 서버 실행
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 서버 실행 (Railway의 PORT 환경변수 사용)
+CMD sh -c "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
