@@ -12,15 +12,14 @@ https://api.mindprep.co.kr
 
 ---
 
-## 필수 파라미터 (v2.0 업데이트)
-
-> **중요**: 2025-01-19부터 `company_name`이 필수 파라미터입니다.
+## 필수 파라미터
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
 | `model` | string | ✅ | `vllm-qwen3-30b-a3b` |
 | `messages` | array | ✅ | 대화 메시지 배열 |
-| `company_name` | string | ✅ | 지원 기업/병원명 (예: "삼성전자", "서울대병원") |
+
+> **권장**: `company_name` 파라미터를 추가하면 더 맞춤화된 면접 질문을 생성합니다.
 
 ---
 
@@ -36,7 +35,7 @@ response = requests.post(
     json={
         "model": "vllm-qwen3-30b-a3b",
         "messages": [{"role": "user", "content": "면접 질문 해주세요"}],
-        "company_name": "삼성전자"  # 필수!
+        "company_name": "삼성전자"  # 권장
     }
 )
 
@@ -47,7 +46,6 @@ print(response.json()["choices"][0]["message"]["content"])
 
 ```python
 from openai import OpenAI
-import json
 
 client = OpenAI(
     api_key="no-key-needed",
@@ -58,7 +56,7 @@ client = OpenAI(
 response = client.chat.completions.create(
     model="vllm-qwen3-30b-a3b",
     messages=[{"role": "user", "content": "면접 질문 해주세요"}],
-    extra_body={"company_name": "삼성전자"}  # 필수!
+    extra_body={"company_name": "삼성전자"}  # 권장
 )
 
 print(response.choices[0].message.content)
@@ -90,7 +88,7 @@ response = requests.post(
     json={
         "model": "vllm-qwen3-30b-a3b",
         "messages": [{"role": "user", "content": "면접 질문 해주세요"}],
-        "company_name": "삼성전자",  # 필수!
+        "company_name": "삼성전자",
         "stream": True
     },
     stream=True
@@ -128,10 +126,20 @@ POST /v1/chat/completions
 |---------|------|------|--------|------|
 | `model` | string | ✅ | - | `vllm-qwen3-30b-a3b` |
 | `messages` | array | ✅ | - | 대화 메시지 배열 |
-| `company_name` | string | ✅ | - | 지원 기업/병원명 |
+| `company_name` | string | ❌ | - | 지원 기업/병원명 (권장) |
 | `temperature` | float | ❌ | 0.7 | 창의성 (0.0~2.0) |
 | `max_tokens` | int | ❌ | 4096 | 최대 토큰 수 |
 | `stream` | bool | ❌ | false | 스트리밍 여부 |
+
+#### company_name 예시 (자유 입력 가능)
+
+**일반기업:**
+`삼성전자`, `SK하이닉스`, `현대자동차`, `LG에너지솔루션`, `삼성바이오로직스`, `기아`, `LG전자`, `포스코홀딩스`, `네이버`, `현대모비스` 등
+
+**병원:**
+`서울아산병원`, `삼성서울병원`, `서울대병원`, `세브란스병원`, `분당서울대병원`, `강남세브란스병원`, `아주대병원`, `서울성모병원`, `인하대병원`, `경희대병원` 등
+
+> 위 목록 외에도 원하는 기업/병원명을 자유롭게 입력할 수 있습니다.
 
 #### 면접 컨텍스트 파라미터 (선택)
 
@@ -216,7 +224,7 @@ POST /v1/chat/completions
 
 ## 면접 컨텍스트 활용 예시
 
-### 1. 기본 호출 (company_name만 필수)
+### 1. 기본 호출
 
 ```python
 response = requests.post(
@@ -303,9 +311,13 @@ response = requests.post(
 )
 ```
 
-### 2. 이력서 RAG
+---
 
-업로드된 이력서에서 관련 내용을 검색.
+## RAG 기능 (고급)
+
+### 이력서 RAG
+
+업로드된 이력서에서 관련 내용을 검색합니다.
 
 **추가 파라미터:**
 
@@ -333,9 +345,9 @@ response = requests.post(
 )
 ```
 
-### 3. 문서 RAG
+### 문서 RAG
 
-업로드된 PDF 문서에서 관련 내용을 검색.
+업로드된 PDF 문서에서 관련 내용을 검색합니다.
 
 **추가 파라미터:**
 
@@ -468,14 +480,14 @@ curl https://api.mindprep.co.kr/prompts/question-sets/일반기업/마케팅영�
 
 ## 에러 처리
 
-### company_name 누락 시 (422 에러)
+### 필수 파라미터 누락 시 (422 에러)
 
 ```json
 {
   "detail": [
     {
       "type": "missing",
-      "loc": ["body", "company_name"],
+      "loc": ["body", "model"],
       "msg": "Field required"
     }
   ]
@@ -493,7 +505,7 @@ try:
         json={
             "model": "vllm-qwen3-30b-a3b",
             "messages": [{"role": "user", "content": "면접 질문 해주세요"}],
-            "company_name": "삼성전자"  # 필수!
+            "company_name": "삼성전자"
         },
         timeout=120
     )
@@ -520,7 +532,7 @@ except requests.exceptions.RequestException as e:
 | **인증** | 불필요 |
 | **기본 모델** | `vllm-qwen3-30b-a3b` |
 | **채팅 API** | `POST /v1/chat/completions` |
-| **필수 파라미터** | `model`, `messages`, `company_name` |
+| **필수 파라미터** | `model`, `messages` |
 | **스트리밍** | `"stream": true` |
 
 ---
@@ -531,7 +543,7 @@ except requests.exceptions.RequestException as e:
 |---------|------|------|------|
 | `model` | ✅ | string | `"vllm-qwen3-30b-a3b"` |
 | `messages` | ✅ | array | `[{"role": "user", "content": "..."}]` |
-| `company_name` | ✅ | string | `"삼성전자"`, `"서울대병원"` |
+| `company_name` | ❌ | string | `"삼성전자"`, `"서울대병원"` (권장) |
 | `job_posting` | ❌ | string | 채용공고 요약 텍스트 |
 | `resume_text` | ❌ | string | 이력서 요약 텍스트 |
 | `question_set_rag_enabled` | ❌ | bool | `true` |
@@ -543,4 +555,4 @@ except requests.exceptions.RequestException as e:
 
 ---
 
-**마지막 업데이트**: 2025-01-19
+**마지막 업데이트**: 2026-01-22

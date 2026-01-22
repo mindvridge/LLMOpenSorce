@@ -32,6 +32,7 @@ from app.load_balancer import get_load_balancer
 from app.rag.retriever import get_retriever
 from app.question_sets import search_relevant_questions, format_questions_for_prompt
 from app.routers.resume import search_resume_context
+from app.routers.monitor import increment_request_stats
 
 
 def is_mlx_model(model: str) -> bool:
@@ -190,6 +191,8 @@ def log_request_background(
     응답 반환 후 실행되므로 사용자 대기 시간에 영향 없음
     기존: 동기 커밋 (10-50ms 추가 대기)
     개선: 백그라운드 실행 (0ms 추가 대기)
+
+    Note: 모니터링 통계는 chat_completions()에서 직접 호출됨 (중복 방지)
     """
     db = SessionLocal()
     try:
@@ -993,7 +996,10 @@ async def chat_completions(
         # 요청 카운트 감소 및 응답 시간 기록
         await load_balancer.decrement_requests(response_time)
 
-        # 사용량 로깅 (백그라운드에서 실행 - 응답 지연 없음)
+        # 모니터링 통계 업데이트 (인증 여부와 관계없이 항상 실행)
+        increment_request_stats(model=request.model, tokens=total_tokens, success=True)
+
+        # DB 사용량 로깅 (인증 활성화 시에만)
         if api_key:
             background_tasks.add_task(
                 log_request_background,
@@ -1032,7 +1038,10 @@ async def chat_completions(
         # 요청 카운트 감소 (에러 시)
         await load_balancer.decrement_requests(time.time() - start_time)
 
-        # 에러 로깅 (백그라운드에서 실행)
+        # 모니터링 통계 업데이트 (실패)
+        increment_request_stats(model=request.model, tokens=0, success=False)
+
+        # DB 에러 로깅 (인증 활성화 시에만)
         if api_key:
             background_tasks.add_task(
                 log_request_background,
