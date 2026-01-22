@@ -1,13 +1,10 @@
-"""헬스 체크 라우터 (최적화: 글로벌 클라이언트 + TTL 캐싱)"""
+"""헬스 체크 라우터 (최적화: TTL 캐싱)"""
 import time
-import httpx
+import socket
 from fastapi import APIRouter
 from app.models.schemas import HealthResponse
 
 router = APIRouter()
-
-# 글로벌 HTTP 클라이언트 (연결 재사용)
-_http_client: httpx.AsyncClient = None
 
 # 헬스 체크 캐시 (TTL 기반)
 _health_cache = {
@@ -17,19 +14,8 @@ _health_cache = {
 }
 
 
-async def get_http_client() -> httpx.AsyncClient:
-    """글로벌 HTTP 클라이언트 반환 (연결 풀링)"""
-    global _http_client
-    if _http_client is None or _http_client.is_closed:
-        _http_client = httpx.AsyncClient(
-            timeout=5.0,
-            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
-        )
-    return _http_client
-
-
-async def check_vllm_status() -> bool:
-    """vLLM-MLX 연결 상태 확인 (캐싱 적용)"""
+def check_vllm_status_sync() -> bool:
+    """vLLM-MLX 연결 상태 확인 (소켓 기반 - 가장 빠름)"""
     global _health_cache
 
     now = time.time()
@@ -38,11 +24,13 @@ async def check_vllm_status() -> bool:
     if now - _health_cache["last_check"] < _health_cache["ttl"]:
         return _health_cache["vllm_connected"]
 
-    # 캐시 만료: 실제 확인
+    # 캐시 만료: 소켓으로 포트 열림 확인 (빠르고 안정적)
     try:
-        client = await get_http_client()
-        response = await client.get("http://localhost:8001/v1/models")
-        connected = response.status_code == 200
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(('127.0.0.1', 8001))
+        sock.close()
+        connected = result == 0
     except Exception:
         connected = False
 
@@ -51,6 +39,11 @@ async def check_vllm_status() -> bool:
     _health_cache["last_check"] = now
 
     return connected
+
+
+async def check_vllm_status() -> bool:
+    """vLLM-MLX 연결 상태 확인 (비동기 래퍼)"""
+    return check_vllm_status_sync()
 
 
 @router.get("/health", response_model=HealthResponse)
